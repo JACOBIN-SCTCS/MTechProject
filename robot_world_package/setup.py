@@ -17,10 +17,10 @@ setup(
         (os.path.join('share', package_name,'worlds/'), glob('./worlds/*')),
 
         # Path to the warehouse sdf file
-        (os.path.join('share', package_name,'models/small_warehouse/'), glob('./models/small_warehouse/*')),
+        (os.path.join('share', package_name,'models/my_robot/'), glob('./models/my_robot/*')),
 
         # Path to the mobile robot sdf file
-        (os.path.join('share', package_name,'models/mobile_warehouse_robot/'), glob('./models/mobile_warehouse_robot/*')),
+        #(os.path.join('share', package_name,'models/mobile_warehouse_robot/'), glob('./models/mobile_warehouse_robot/*')),
         
         # Path to the world file (i.e. warehouse + global environment)
         (os.path.join('share', package_name,'models/'), glob('./worlds/*')),
