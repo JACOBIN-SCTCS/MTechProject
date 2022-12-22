@@ -1,4 +1,6 @@
 from setuptools import setup
+import os 
+from glob import glob
 
 package_name = 'robot_world_package'
 
@@ -10,6 +12,18 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+
+        (os.path.join('share', package_name,'launch'), glob('launch/*.launch.py')),
+        (os.path.join('share', package_name,'worlds/'), glob('./worlds/*')),
+
+        # Path to the warehouse sdf file
+        (os.path.join('share', package_name,'models/small_warehouse/'), glob('./models/small_warehouse/*')),
+
+        # Path to the mobile robot sdf file
+        (os.path.join('share', package_name,'models/mobile_warehouse_robot/'), glob('./models/mobile_warehouse_robot/*')),
+        
+        # Path to the world file (i.e. warehouse + global environment)
+        (os.path.join('share', package_name,'models/'), glob('./worlds/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
