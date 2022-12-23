@@ -11,8 +11,8 @@ class MapProcessor(Node):
     def __init__(self):
         super().__init__('robot_1_map_processor')
 
-        laser_sub = Subscriber('robot_1/laser/out',LaserScan)
-        odom_sub  = Subscriber('robot_1/odom',Odometry)
+        laser_sub = Subscriber(self,LaserScan,'robot_1/laser/out')
+        odom_sub  = Subscriber(self,Odometry,'robot_1/odom')
 
         ts = message_filters.TimeSynchronizer([laser_sub,odom_sub],10)
         ts.registerCallback(self.map_callback)
