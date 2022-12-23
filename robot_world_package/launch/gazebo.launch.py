@@ -25,6 +25,17 @@ def generate_launch_description():
             '-s', 'libgazebo_ros_factory.so'],
             output='screen')
     
+    robot_1  = Node(package=package_name, executable='spawn_robot',
+                        arguments=['WarehouseBot1', 'robot_1', '0.0', '0.0', '0.0'],
+                        output='screen')
+    
+   
+    robot_2  = Node(package=package_name, executable='spawn_robot',
+                        arguments=['WarehouseBot2', 'robot_2', '-13.0', '1.2', '0.0'],
+                        output='screen')
+    
     return LaunchDescription([
-        gazebo
+        gazebo,
+        robot_1,
+        robot_2
     ])
