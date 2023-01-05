@@ -12,6 +12,11 @@ def generate_launch_description():
         executable='robot_1_map_processor'
     )
 
+    robot_1_motion = Node(
+        package=package_name,
+        executable='robot_1_motion_planner'
+    )
+
     '''robot1_map_frame = Node(
         package="tf2_ros",
         executable="static_transform_publisher",
@@ -20,4 +25,6 @@ def generate_launch_description():
     )'''
     return LaunchDescription([
         robot1_map,
+        robot_1_motion
+        #robot1_map_frame
     ])
