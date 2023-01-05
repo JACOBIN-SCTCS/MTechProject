@@ -1,24 +1,39 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
+from sensor_msgs.msg import LaserScan
 
 class MotionRobot1(Node):
 
     def __init__(self):
         super().__init__('robot_1_motion_handler')
-        self.publisher =  self.create_publisher(Twist,'/robot_1/cmd_vel',10)
+        
         self.count = 0
-        self.timer = self.create_timer(10,self.timer_callback)
-   
-    def timer_callback(self):
-        msg = Twist()
-        if self.count%2==0:
-            msg.angular.z = -3.14
-        else:
-            msg.angular.z = 3.14
-        self.publisher.publish(msg)
-        self.count = 1 - self.count
+        self.range_threshhold = 0.4
 
+        self.twist_publisher = self.create_publisher(Twist,'/robot_1/cmd_vel',10)
+
+        self.range_subscription = self.create_subscription(
+            LaserScan,
+            '/robot_1/ultrasonic_sensor_1',
+            self.range_callback,
+            10
+        )
+        self.range_subscription
+
+
+    def range_callback(self,msg : LaserScan):
+        twist_message = Twist()
+        range_values = msg.ranges
+
+        if(range_values[3] <= self.range_threshhold or range_values[4] <= self.range_threshhold):
+            twist_message.angular.z = -0.3
+        elif (range_values[3]<= self.range_threshhold or range_values[2] <= self.range_threshhold):
+            twist_message.angular.z = 0.3
+        else:
+            twist_message.linear.x = 0.3
+        
+        self.twist_publisher.publish(twist_message)
 
 
 def main(args=None):
