@@ -9,7 +9,7 @@ class MotionRobot1(Node):
         super().__init__('robot_1_motion_handler')
         
         self.count = 0
-        self.range_threshhold = 0.4
+        self.range_threshhold = 0.6
 
         self.twist_publisher = self.create_publisher(Twist,'/robot_1/cmd_vel',10)
 
@@ -26,9 +26,9 @@ class MotionRobot1(Node):
         twist_message = Twist()
         range_values = msg.ranges
 
-        if(range_values[3] <= self.range_threshhold or range_values[4] <= self.range_threshhold):
+        if(range_values[3] <= self.range_threshhold or range_values[4] <= self.range_threshhold or range_values[5] <= 0.4):
             twist_message.angular.z = -0.3
-        elif (range_values[3]<= self.range_threshhold or range_values[2] <= self.range_threshhold):
+        elif (range_values[3]<= self.range_threshhold or range_values[2] <= self.range_threshhold or range_values[1] <= 0.4 ):
             twist_message.angular.z = 0.3
         else:
             twist_message.linear.x = 0.3
