@@ -2755,6 +2755,7 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
+      <static>1</static>
     </model>
     <model name='unit_cylinder_0'>
       <pose>-1.26598 -1.05242 0.5 0 -0 0</pose>
@@ -2810,6 +2811,7 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
+      <static>1</static>
     </model>
     <model name='unit_box'>
       <pose>-6.17187 -5.45303 0.5 0 -0 0</pose>
@@ -2863,6 +2865,7 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
+      <static>1</static>
     </model>
     <model name='unit_box_0'>
       <pose>-8.14878 -3.45545 0.5 0 -0 0</pose>
@@ -2916,6 +2919,7 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
+      <static>1</static>
     </model>
     <model name='unit_cylinder_1'>
       <pose>6.19032 2.66618 0.5 0 -0 0</pose>
@@ -2971,6 +2975,7 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
+      <static>1</static>
     </model>
     <model name='unit_box_1'>
       <pose>2.07692 -7.37284 0.5 0 -0 0</pose>
@@ -3024,6 +3029,7 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
+      <static>1</static>    
     </model>
     <state world_name='default'>
       <sim_time>123 106000000</sim_time>
@@ -3401,6 +3407,7 @@
           <acceleration>0.004709 0.011055 -9.78158 -0.022108 0.009414 1e-06</acceleration>
           <wrench>0.004709 0.011055 -9.78158 0 -0 0</wrench>
         </link>
+         <static>1</static>
       </model>
       <model name='unit_box_0'>
         <pose>-8.14879 -3.45545 0.499995 0 -1e-05 0</pose>
@@ -3411,6 +3418,7 @@
           <acceleration>-0.010615 0.006191 -9.78231 -0.012424 -0.021225 1.8e-05</acceleration>
           <wrench>-0.010615 0.006191 -9.78231 0 -0 0</wrench>
         </link>
+        <static>1</static>
       </model>
       <model name='unit_box_1'>
         <pose>2.07693 -7.37285 0.499995 0 1e-05 0</pose>
@@ -3421,6 +3429,7 @@
           <acceleration>0.010615 -0.006191 -9.78231 0.012424 0.021225 1.8e-05</acceleration>
           <wrench>0.010615 -0.006191 -9.78231 0 -0 0</wrench>
         </link>
+        <static>1</static>
       </model>
       <model name='unit_box_2'>
         <pose>-14.443 -8.01582 0.499995 0 1e-05 0</pose>
@@ -3431,6 +3440,7 @@
           <acceleration>0.010615 -0.006191 -9.78231 0.012424 0.021225 1.8e-05</acceleration>
           <wrench>0.010615 -0.006191 -9.78231 0 -0 0</wrench>
         </link>
+        <static>1</static>
       </model>
       <model name='unit_box_3'>
         <pose>-7.3162 0.436249 0.499995 -1e-05 -0 -0</pose>
@@ -3441,6 +3451,7 @@
           <acceleration>0.004709 0.011055 -9.78158 -0.022108 0.009414 1e-06</acceleration>
           <wrench>0.004709 0.011055 -9.78158 0 -0 0</wrench>
         </link>
+        <static>1</static>
       </model>
       <model name='unit_box_4'>
         <pose>4.74657 -7.48876 0.499995 0 1e-05 0</pose>
@@ -3451,6 +3462,7 @@
           <acceleration>0.010615 -0.006191 -9.78231 0.012424 0.021225 1.8e-05</acceleration>
           <wrench>0.010615 -0.006191 -9.78231 0 -0 0</wrench>
         </link>
+        <static>1</static>
       </model>
       <model name='unit_box_5'>
         <pose>6.79745 -1.25161 0.499995 -1e-05 -0 -0</pose>
@@ -3461,6 +3473,7 @@
           <acceleration>0.004709 0.011055 -9.78158 -0.022108 0.009414 1e-06</acceleration>
           <wrench>0.004709 0.011055 -9.78158 0 -0 0</wrench>
         </link>
+        <static>1</static>
       </model>
       <model name='unit_box_6'>
         <pose>10.9274 -3.01076 0.499995 0 1e-05 0</pose>
@@ -3471,6 +3484,7 @@
           <acceleration>0.010615 -0.006191 -9.78231 0.012424 0.021225 1.8e-05</acceleration>
           <wrench>0.010615 -0.006191 -9.78231 0 -0 0</wrench>
         </link>
+        <static>1</static>
       </model>
       <model name='unit_box_7'>
         <pose>11.7397 2.12025 0.499995 -1e-05 -0 0</pose>
@@ -3481,6 +3495,7 @@
           <acceleration>0.004709 0.011055 -9.78158 -0.022108 0.009414 1e-06</acceleration>
           <wrench>0.004709 0.011055 -9.78158 0 -0 0</wrench>
         </link>
+        <static>1</static>
       </model>
       <model name='unit_box_8'>
         <pose>12.2723 -8.54609 0.5 0 -0 0</pose>
@@ -3491,6 +3506,7 @@
           <acceleration>-0.004709 -9.78112 9.78158 0.712677 -0.009414 -4.3e-05</acceleration>
           <wrench>-0.004709 -9.78112 9.78158 0 -0 0</wrench>
         </link>
+        <static>1</static>
       </model>
       <model name='unit_cylinder'>
         <pose>-2.74871 1.23178 0.499994 -4e-06 -3e-06 -0</pose>
@@ -3501,6 +3517,7 @@
           <acceleration>0 0 -9.8 0 -0 0</acceleration>
           <wrench>0 0 -9.8 0 -0 0</wrench>
         </link>
+        <static>1</static>
       </model>
       <model name='unit_cylinder_0'>
         <pose>-1.26598 -1.05242 0.499993 -0 -0 -0</pose>
@@ -3511,6 +3528,7 @@
           <acceleration>0 0 -9.8 0 -0 0</acceleration>
           <wrench>0 0 -9.8 0 -0 0</wrench>
         </link>
+        <static>1</static>
       </model>
       <model name='unit_cylinder_1'>
         <pose>6.19032 2.66618 0.499998 3e-06 -3e-06 0</pose>
@@ -3521,6 +3539,7 @@
           <acceleration>0 0 -9.8 0 -0 0</acceleration>
           <wrench>0 0 -9.8 0 -0 0</wrench>
         </link>
+        <static>1</static>
       </model>
       <model name='unit_cylinder_2'>
         <pose>-12.557 -1.57219 0.499992 -3e-06 3e-06 0</pose>
@@ -3531,6 +3550,7 @@
           <acceleration>0 0 -9.8 0 -0 0</acceleration>
           <wrench>0 0 -9.8 0 -0 0</wrench>
         </link>
+        <static>1</static>
       </model>
       <model name='unit_cylinder_3'>
         <pose>-14.3015 0.708044 0.499998 3e-06 -4e-06 0</pose>
@@ -3541,6 +3561,7 @@
           <acceleration>0 0 -9.8 0 -0 0</acceleration>
           <wrench>0 0 -9.8 0 -0 0</wrench>
         </link>
+        <static>1</static>
       </model>
       <light name='sun'>
         <pose>0 0 10 0 -0 0</pose>
@@ -3607,6 +3628,7 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
+      <static>1</static>
     </model>
     <model name='unit_cylinder_3'>
       <pose>-14.3015 0.708046 0.5 0 -0 0</pose>
@@ -3662,6 +3684,7 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
+      <static>1</static>
     </model>
     <model name='unit_box_2'>
       <pose>-14.443 -8.01582 0.5 0 -0 0</pose>
@@ -3715,6 +3738,7 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
+      <static>1</static>
     </model>
     <model name='unit_box_3'>
       <pose>-7.3162 0.436244 0.5 0 -0 0</pose>
@@ -3768,6 +3792,7 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
+      <static>1</static>
     </model>
     <model name='unit_box_4'>
       <pose>4.74657 -7.48876 0.5 0 -0 0</pose>
@@ -3821,6 +3846,7 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
+      <static>1</static>
     </model>
     <model name='unit_box_5'>
       <pose>6.79745 -1.25162 0.5 0 -0 0</pose>
@@ -3874,6 +3900,7 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
+      <static>1</static>
     </model>
     <model name='unit_box_6'>
       <pose>10.9274 -3.01076 0.5 0 -0 0</pose>
@@ -3927,6 +3954,7 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
+      <static>1</static>
     </model>
     <model name='unit_box_7'>
       <pose>11.7397 2.12024 0.5 0 -0 0</pose>
@@ -3980,6 +4008,7 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
+      <static>1</static>
     </model>
     <model name='unit_box_8'>
       <pose>12.2723 -8.54609 0.5 0 -0 0</pose>
@@ -4033,6 +4062,7 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
+      <static>1</static>
     </model>
   </world>
 </sdf>

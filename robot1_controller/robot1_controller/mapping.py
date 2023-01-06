@@ -4,7 +4,8 @@ from nav_msgs.msg import Odometry,OccupancyGrid
 from sensor_msgs.msg import LaserScan
 import message_filters
 from message_filters import Subscriber
-from rclpy.qos import QoSProfile,DurabilityPolicy,HistoryPolicy
+from rclpy.qos import QoSProfile,DurabilityPolicy,HistoryPolicy,ReliabilityPolicy
+from tf2_ros import StaticTransformBroadcaster,TransformStamped
 import math
 import numpy as np
 
@@ -30,14 +31,26 @@ class MapProcessor(Node):
         laser_sub = Subscriber(self,LaserScan,'robot_1/laser/out')
         odom_sub  = Subscriber(self,Odometry,'robot_1/odom')
 
-        ts = message_filters.TimeSynchronizer([laser_sub,odom_sub],10)
+        #ts = message_filters.TimeSynchronizer([laser_sub,odom_sub],10)
+        ts = message_filters.ApproximateTimeSynchronizer([laser_sub,odom_sub],20,0.5)
         ts.registerCallback(self.map_callback)
 
         self.map_publisher = self.create_publisher(OccupancyGrid,'robot1_map',qos_profile=QoSProfile(
                 depth=1,
                 durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                reliability=ReliabilityPolicy.RELIABLE,
                 history=HistoryPolicy.KEEP_LAST,
             ))
+        
+        self.tf_publisher = StaticTransformBroadcaster(self)
+        tf = TransformStamped()
+        tf.header.stamp = self.get_clock().now().to_msg()
+        tf.header.frame_id = 'world_frame'
+        tf.child_frame_id = 'robot1_map'
+        tf.transform.translation.x = 0.0
+        tf.transform.translation.y = 0.0
+        tf.transform.translation.z = 0.0
+        self.tf_publisher.sendTransform(tf)
 
         self.occupancy_grid = OccupancyGrid()
         self.occupancy_grid.info.width = self.GRID_SIZE
@@ -144,6 +157,8 @@ class MapProcessor(Node):
                 probability_value  = 1 - 1/(1+math.exp(self.log_map[(self.GRID_SIZE>>1)-1 + points[i][0]][(self.GRID_SIZE>>1)-1+ points[i][1]]))
             except OverflowError:
                 probability_value = float('-inf')
+                self.get_logger().info("Overflow error")
+
 
 
             if(probability_value > 0.5):
@@ -162,6 +177,8 @@ class MapProcessor(Node):
             probability_value = max(float('-inf'), 1 - float(1/(1 + math.exp(self.log_map[(self.GRID_SIZE>>1)-1 + points[len(points)-1][0]][(self.GRID_SIZE>>1)-1+ points[len(points)-1][1]]))))
         except OverflowError:
             probability_value = float('-inf')
+            self.get_logger().info("Overflow error")
+
 
         if(probability_value >= 0.8):
             self.occupancy_grid.data[((self.GRID_SIZE>>1)-1 + points[len(points)-1][0])*self.GRID_SIZE + ((self.GRID_SIZE>>1) -1 + points[len(points)-1][1])] = 100

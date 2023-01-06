@@ -82,22 +82,26 @@ class MotionRobot1(Node):
         twist_message = Twist()
         position = msg.pose.pose.position
         orientation  = self.quarternion_to_euler(msg.pose.pose.orientation)
+        if(self.current_waypoint_index == len(self.waypoints_to_follow)):
+                self.get_logger().info("completed all waypoints")
+                return twist_message
         destination = self.waypoints_to_follow[self.current_waypoint_index]
 
         inc_x = destination[0] - position.x
         inc_y = destination[1] - position.y
-        if((inc_x*inc_x + inc_y*inc_y) <= 0.001):
+        if((inc_x*inc_x + inc_y*inc_y) <= 0.01):
             self.twist_publisher.publish(twist_message)
-            return
+            self.current_waypoint_index +=1 
+          
             
 
         angle_to_goal = math.atan2(inc_y,inc_x)
         if(abs(angle_to_goal - orientation[2]) > self.absolute_difference_threshhold):
-            self.get_logger().info(str(abs(angle_to_goal - orientation[2])))
-            twist_message.angular.z = -0.1
+            #self.get_logger().info(str(abs(angle_to_goal - orientation[2])))
+            twist_message.angular.z = 0.2
             twist_message.linear.x = 0.0
         else:
-            twist_message.linear.x = 0.1
+            twist_message.linear.x = 0.3
             twist_message.angular.z = 0.0
 
         self.twist_publisher.publish(twist_message)
