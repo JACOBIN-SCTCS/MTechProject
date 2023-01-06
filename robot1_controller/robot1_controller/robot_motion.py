@@ -2,27 +2,47 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
+from nav_msgs.msg import Odometry
+import math
 
 class MotionRobot1(Node):
 
     def __init__(self):
         super().__init__('robot_1_motion_handler')
         
+        self.waypoints_to_follow = [ 
+                (0,-1),
+                (0,-2), (0,-3) , (0,-4),
+                (-1,-5),
+                (-2,-6),
+                (-3,-6),
+        ]
+        self.absolute_difference_threshhold = 0.1
+
+
+        self.current_waypoint_index = 0
         self.count = 0
         self.range_threshhold = 0.6
-
         self.twist_publisher = self.create_publisher(Twist,'/robot_1/cmd_vel',10)
+        self.odom_subscription = self.create_subscription(
+            Odometry,
+            '/robot_1/odom',
+            self.odom_callback,
+            10
+        )
+        
 
-        self.range_subscription = self.create_subscription(
+        '''self.range_subscription = self.create_subscription(
             LaserScan,
             '/robot_1/ultrasonic_sensor_1',
             self.range_callback,
             10
         )
-        self.range_subscription
+        self.range_subscription'''
+        self.odom_subscription
 
 
-    def range_callback(self,msg : LaserScan):
+    '''def range_callback(self,msg : LaserScan):
         twist_message = Twist()
         range_values = msg.ranges
 
@@ -33,7 +53,33 @@ class MotionRobot1(Node):
         else:
             twist_message.linear.x = 0.3
         
+        self.twist_publisher.publish(twist_message)'''
+
+    def odom_callback(self,msg : Odometry):
+        
+        twist_message = Twist()
+        position = msg.pose.pose.position
+        orientation  = msg.pose.pose.orientation
+        destination = self.waypoints_to_follow[self.current_waypoint_index]
+
+        inc_x = destination[0] - position.x
+        inc_y = destination[1] - position.y
+        if((inc_x*inc_x + inc_y*inc_y) <= 0.001):
+            self.twist_publisher.publish(twist_message)
+            return
+            
+
+        angle_to_goal = math.atan2(inc_y,inc_x)
+        if(abs(angle_to_goal - orientation.z) > self.absolute_difference_threshhold):
+            self.get_logger().info(str(abs(angle_to_goal - orientation.z)))
+            twist_message.angular.z = -0.1
+            twist_message.linear.x = 0.0
+        else:
+            twist_message.linear.x = 0.3
+            twist_message.angular.z = 0.0
+
         self.twist_publisher.publish(twist_message)
+
 
 
 def main(args=None):
