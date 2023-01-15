@@ -25,17 +25,14 @@ def generate_launch_description():
             '-s', 'libgazebo_ros_factory.so'],
             output='screen')
     
-    robot_1  = Node(package=package_name, executable='spawn_robot',
-                        arguments=['WarehouseBot1', 'robot_1', '0.0', '0.0', '0.0'],
-                        output='screen')
+    robot_coordinates = [[0.0,0.0,0.0],[-13.0,1.2,0.0]]
+    robot_instances = [ 
+                        Node(package=package_name, executable='spawn_robot',
+                            arguments=['WarehouseBot'+str(i+1), 'robot_'+str(i+1), str(robot_coordinates[i][0]), str(robot_coordinates[i][1]), str(robot_coordinates[i][2])],
+                            output='screen')
+                        
+                        for i in range(len(robot_coordinates))
+                    ]
+    nodes = [gazebo] + robot_instances
     
-   
-    robot_2  = Node(package=package_name, executable='spawn_robot',
-                        arguments=['WarehouseBot2', 'robot_2', '-13.0', '1.2', '0.0'],
-                        output='screen')
-    
-    return LaunchDescription([
-        gazebo,
-        robot_1,
-        robot_2
-    ])
+    return LaunchDescription(nodes)
