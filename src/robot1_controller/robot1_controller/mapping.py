@@ -26,18 +26,20 @@ class MapProcessor(Node):
         self.RESOLUTION = 0.01
         self.WORLD_SIZE = world_size
         self.GRID_SIZE = self.WORLD_SIZE / self.RESOLUTION
-        self.WORLD_ORIGIN_X = self.WORLD_SIZE / 2.0
-        self.WORLD_ORIGIN_Y = self.WORLD_SIZE / 2.0
+        self.WORLD_ORIGIN_X = -self.WORLD_SIZE / 2.0
+        self.WORLD_ORIGIN_Y = -self.WORLD_SIZE / 2.0
 
         # Initialize the probability values for the cell being an obstacle,
         # free or belonging to the unknown region.
         self.NON_OCC_PROB = 0.2
         self.OCC_PROB = 0.8
         self.PRIOR_PROB = 0.5
+        self.p0 = 0.1
         
         self.l_occ = self.log_prob(self.OCC_PROB)
         self.l_prior = self.log_prob(self.PRIOR_PROB)
         self.l_non_occ = self.log_prob(self.NON_OCC_PROB)
+        self.l0 = self.log_prob(self.p0)
         
         self.log_map = np.array([[self.l_prior for i in range(self.GRID_SIZE)] for j in range(self.GRID_SIZE)])
         self.map_publisher = self.create_publisher(OccupancyGrid,self.robot_name + '_map',qos_profile=QoSProfile(
@@ -69,7 +71,7 @@ class MapProcessor(Node):
 
 
 
-        self.CONVERSION_FACTOR = 50
+        '''self.CONVERSION_FACTOR = 50
 
    
 
@@ -88,7 +90,7 @@ class MapProcessor(Node):
         self.occupancy_grid.info.height = self.GRID_SIZE
         self.occupancy_grid.info.resolution = 0.01
         self.occupancy_grid.header.frame_id = 'robot1_map'
-        self.occupancy_grid.data = [-1 for i in range(self.GRID_SIZE*self.GRID_SIZE)]
+        self.occupancy_grid.data = [-1 for i in range(self.GRID_SIZE*self.GRID_SIZE)]'''
 
 
 
@@ -149,17 +151,30 @@ class MapProcessor(Node):
         laser_range_angle = robot_rotation + msg.angle_min
         for laser_range in msg.ranges:
             if laser_range < msg.range_min or laser_range > msg.range_max:
-                world_laser_x = robot_translation.x + laser_range*math.cos(laser_range_angle)
-                world_laser_y = robot_translation.y + laser_range*math.sin(laser_range_angle)
-                lidar_sensor_value = self.l_occ
-                if(laser_range==msg.range_max):
-                    lidar_sensor_value = self.l_non_occ
-                lidar_coords_vals.append((world_laser_x,world_laser_y,lidar_sensor_value))
+                continue
+            world_laser_x = robot_translation.x + laser_range*math.cos(laser_range_angle)
+            world_laser_y = robot_translation.y + laser_range*math.sin(laser_range_angle)
+            lidar_sensor_value = self.l_occ
+            if(laser_range==msg.range_max):
+                lidar_sensor_value = self.l_non_occ
+            lidar_coords_vals.append((world_laser_x,world_laser_y,lidar_sensor_value))
             laser_range_angle = laser_range_angle + msg.angle_increment
         
-        robot_position_grid = 9
+        robot_position_grid = (int(robot_translation.x/self.RESOLUTION) , int(robot_translation.y/self.RESOLUTION))
+        
+        for lidar_vals in lidar_coords_vals:
+            laser_position = (int(lidar_vals[0]/self.RESOLUTION), int(lidar_vals[1]/self.RESOLUTION))
+            points = self.bressenhams_algorithm(robot_position_grid,laser_position)[:-1]
+
+            for i in range(len(points)):
+                self.log_map[(self.GRID_SIZE>>1)+points[i][0],(self.GRID_SIZE>>1)+points[i][1]] += (self.l_non_occ - self.l0)
+            
+            self.log_map[(self.GRID_SIZE>>1) + laser_position[0],(self.GRID_SIZE>>1) + laser_position[1]] += (lidar_vals[2] - self.l0)
+        
+        self._map_lock.release()
+
     
-    def bressenhams_algorithm(coord0,coord1):
+    def bressenhams_algorithm(self,coord0,coord1):
         x0 = coord0[0]
         y0 = coord0[1]
         x1 = coord1[0]
@@ -195,7 +210,7 @@ class MapProcessor(Node):
 
 
 
-    def quarternion_to_euler(self,quat):
+    '''def quarternion_to_euler(self,quat):
         x = quat.x
         y = quat.y
         z = quat.z
@@ -317,7 +332,7 @@ class MapProcessor(Node):
         else:
             self.occupancy_grid.data[((self.GRID_SIZE>>1)-1 + points[len(points)-1][0])*self.GRID_SIZE + ((self.GRID_SIZE>>1) -1 + points[len(points)-1][1])] = 0
 
-        return points
+        return points'''
 
 def main(args=None):
     rclpy.init(args=args)
