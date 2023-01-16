@@ -26,6 +26,8 @@ class MapProcessor(Node):
         self.RESOLUTION = 0.01
         self.WORLD_SIZE = world_size
         self.GRID_SIZE = self.WORLD_SIZE / self.RESOLUTION
+        self.WORLD_ORIGIN_X = self.WORLD_SIZE / 2.0
+        self.WORLD_ORIGIN_Y = self.WORLD_SIZE / 2.0
 
         # Initialize the probability values for the cell being an obstacle,
         # free or belonging to the unknown region.
@@ -115,8 +117,8 @@ class MapProcessor(Node):
         msg.header.frame_id = self.robot_name+'_map'
         msg.info.height = self.GRID_SIZE
         msg.info.width =  self.GRID_SIZE
-        msg.info.origin.position.x = -(self.WORLD_SIZE/2.0)
-        msg.info.origin.position.y = -(self.WORLD_SIZE/2.0)
+        msg.info.origin.position.x = self.WORLD_ORIGIN_X
+        msg.info.origin.position.y = self.WORLD_ORIGIN_Y
         msg.data = prob_map
         self.map_publisher.publish(msg)
         self._map_lock.release()
@@ -142,6 +144,55 @@ class MapProcessor(Node):
         except:
             self._map_lock.release()
             return 
+        
+        lidar_coords_vals = []
+        laser_range_angle = robot_rotation + msg.angle_min
+        for laser_range in msg.ranges:
+            if laser_range < msg.range_min or laser_range > msg.range_max:
+                world_laser_x = robot_translation.x + laser_range*math.cos(laser_range_angle)
+                world_laser_y = robot_translation.y + laser_range*math.sin(laser_range_angle)
+                lidar_sensor_value = self.l_occ
+                if(laser_range==msg.range_max):
+                    lidar_sensor_value = self.l_non_occ
+                lidar_coords_vals.append((world_laser_x,world_laser_y,lidar_sensor_value))
+            laser_range_angle = laser_range_angle + msg.angle_increment
+        
+        robot_position_grid = 9
+    
+    def bressenhams_algorithm(coord0,coord1):
+        x0 = coord0[0]
+        y0 = coord0[1]
+        x1 = coord1[0]
+        y1 = coord1[1]
+
+        dx = abs(x1-x0)
+        sx = 1 if x0 < x1 else -1
+        dy = -abs(y1-y0)
+        sy = 1 if y0 < y1 else -1
+
+        error = dx + dy
+
+        tmp_x = x0
+        tmp_y = y0
+        coordinate_points  = []
+        while True:
+            if(tmp_x==x1 and tmp_y == y1 ):
+                break
+            e2 = 2*error
+            if e2 >= dy:
+                if tmp_x==x1:
+                    break
+                error = error + dy
+                tmp_x = tmp_x + sx
+            if e2 <= dx:
+                if tmp_y == y1:
+                    break
+                error = error + dx
+                tmp_y = tmp_y + sy
+            coordinate_points.append((tmp_x,tmp_y))
+        return coordinate_points
+
+
 
 
     def quarternion_to_euler(self,quat):
