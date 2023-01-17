@@ -23,9 +23,9 @@ class MapProcessor(Node):
         self.RANGE_MAX = 1.0
 
  
-        self.RESOLUTION = 0.01
+        self.RESOLUTION = 0.1
         self.WORLD_SIZE = world_size
-        self.GRID_SIZE = int(self.WORLD_SIZE / self.RESOLUTION)
+        self.GRID_SIZE = int(self.WORLD_SIZE / self.RESOLUTION) + 1
         self.WORLD_ORIGIN_X = -(self.WORLD_SIZE / 2.0)
         self.WORLD_ORIGIN_Y = -(self.WORLD_SIZE / 2.0)
 
@@ -43,16 +43,34 @@ class MapProcessor(Node):
         
         
         self.log_map = np.array([[self.l_prior for i in range(self.GRID_SIZE)] for j in range(self.GRID_SIZE)])
+
+        cell_prob= round(self.prob_book(self.l_occ),2)
+        occupancy_grid_prior_value =100
+        self.get_logger().info(str(occupancy_grid_prior_value))
+        self.occupancy_grid_data = np.ones((self.GRID_SIZE*self.GRID_SIZE,),dtype=np.int8)*occupancy_grid_prior_value
+
+        now = self.get_clock().now()
+        self.occupancy_grid = OccupancyGrid()
+        self.occupancy_grid.header.stamp = now.to_msg()
+        self.occupancy_grid.info.height = self.GRID_SIZE
+        self.occupancy_grid.info.width  = self.GRID_SIZE 
+        self.occupancy_grid.header.frame_id = self.robot_name+'_map'
+        #self.occupancy_grid.info.origin.position.x = 0.0
+        #self.occupancy_grid.info.origin.position.y = 0.0
+        self.occupancy_grid.data = self.occupancy_grid_data.tolist()
+
+
         self.map_publisher = self.create_publisher(OccupancyGrid,self.robot_name + '_map',qos_profile=QoSProfile(
                 depth=1,
                 durability=DurabilityPolicy.TRANSIENT_LOCAL,
-                reliability=ReliabilityPolicy.RELIABLE,
+                #reliability=ReliabilityPolicy.RELIABLE,
                 history=HistoryPolicy.KEEP_LAST,
             ))
+        #self.map_publisher.publish(self.occupancy_grid)
 
-        self._map_lock = threading.Lock()
+        #self._map_lock = threading.Lock()
         
-        self.tf_publisher = StaticTransformBroadcaster(self)
+        '''self.tf_publisher = StaticTransformBroadcaster(self)
         tf = TransformStamped()
         tf.header.stamp = self.get_clock().now().to_msg()
         tf.header.frame_id = 'world_frame'
@@ -60,14 +78,14 @@ class MapProcessor(Node):
         tf.transform.translation.x = 0.0
         tf.transform.translation.y = 0.0
         tf.transform.translation.z = 0.0
-        self.tf_publisher.sendTransform(tf)
+        self.tf_publisher.sendTransform(tf)'''
 
 
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer,self)
-        self.scanner_subscriber = self.create_subscription(LaserScan,self.robot_name+'/laser/out',self.update_map,10)
-        self.publish_map()
-        self.create_timer(1,self.publish_map)
+        #self.scanner_subscriber = self.create_subscription(LaserScan,self.robot_name+'/laser/out',self.update_map,10)
+
+        self.create_timer(2,self.publish_map)
 
 
 
@@ -98,40 +116,29 @@ class MapProcessor(Node):
     def log_prob(self,p_x):
         return np.log(p_x / (1.0-p_x))
 
+    def prob_book(self,log_prob):
+        result = float(1 - (1.0/(1+np.exp(log_prob))))
+        if np.isnan(result):
+            result = 0.0
+        return result
+
     def prob(self,log_prob):
         result = np.exp(log_prob) / (1.0 + np.exp(log_prob))
-        if math.isnan(result):
+        if np.isnan(result):
             result = 0.0
         return result
 
     def publish_map(self):
-        self._map_lock.acquire()
         now = self.get_clock().now()
-        prob_map = [-1]*self.GRID_SIZE*self.GRID_SIZE
-        idx = 0
-
-        for i in range(self.GRID_SIZE):
-            for j in range(self.GRID_SIZE):
-                cell_prob= round(self.prob(self.log_map[i,j]),2)
-                prob_map[idx] = int(cell_prob*100)
-                idx+=1
-        msg = OccupancyGrid()
-        msg.header.stamp = now.to_msg()
-        msg.header.frame_id = self.robot_name+'_map'
-        msg.info.height = self.GRID_SIZE
-        msg.info.width =  self.GRID_SIZE
-        msg.info.origin.position.x = self.WORLD_ORIGIN_X
-        msg.info.origin.position.y = self.WORLD_ORIGIN_Y
-        msg.data = prob_map
-        self.map_publisher.publish(msg)
-        self._map_lock.release()
+        self.occupancy_grid.header.stamp = now.to_msg()
+        self.map_publisher.publish(self.occupancy_grid)
 
 
     def update_map(self, msg: LaserScan):
-        if self._map_lock.locked():
-            return
-        else:
-            self._map_lock.acquire()
+        #if self._map_lock.locked():
+        #    return
+        #else:
+        #    self._map_lock.acquire()
         
         robot_rotation = None
         robot_translation = None
@@ -145,7 +152,7 @@ class MapProcessor(Node):
                             )
             robot_translation = transformation.transform.translation
         except:
-            self._map_lock.release()
+            #self._map_lock.release()
             return 
         
         lidar_coords_vals = []
