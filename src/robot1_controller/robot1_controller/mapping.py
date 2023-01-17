@@ -25,21 +25,22 @@ class MapProcessor(Node):
  
         self.RESOLUTION = 0.01
         self.WORLD_SIZE = world_size
-        self.GRID_SIZE = self.WORLD_SIZE / self.RESOLUTION
-        self.WORLD_ORIGIN_X = -self.WORLD_SIZE / 2.0
-        self.WORLD_ORIGIN_Y = -self.WORLD_SIZE / 2.0
+        self.GRID_SIZE = int(self.WORLD_SIZE / self.RESOLUTION)
+        self.WORLD_ORIGIN_X = -(self.WORLD_SIZE / 2.0)
+        self.WORLD_ORIGIN_Y = -(self.WORLD_SIZE / 2.0)
 
         # Initialize the probability values for the cell being an obstacle,
         # free or belonging to the unknown region.
         self.NON_OCC_PROB = 0.2
         self.OCC_PROB = 0.8
         self.PRIOR_PROB = 0.5
-        self.p0 = 0.1
+        self.p_0 = 0.1
         
-        self.l_occ = self.log_prob(self.OCC_PROB)
-        self.l_prior = self.log_prob(self.PRIOR_PROB)
-        self.l_non_occ = self.log_prob(self.NON_OCC_PROB)
-        self.l0 = self.log_prob(self.p0)
+        self.l_occ = float(self.log_prob(self.OCC_PROB))
+        self.l_prior = float(self.log_prob(self.PRIOR_PROB))
+        self.l_non_occ = float(self.log_prob(self.NON_OCC_PROB))
+        self.l0 = float(self.log_prob(self.p_0))
+        
         
         self.log_map = np.array([[self.l_prior for i in range(self.GRID_SIZE)] for j in range(self.GRID_SIZE)])
         self.map_publisher = self.create_publisher(OccupancyGrid,self.robot_name + '_map',qos_profile=QoSProfile(
@@ -64,7 +65,7 @@ class MapProcessor(Node):
 
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer,self)
-        self.scanner_subscriber = self.create_subscription(LaserScan,self.robot_name+'/laser/out')
+        self.scanner_subscriber = self.create_subscription(LaserScan,self.robot_name+'/laser/out',self.update_map,10)
         self.publish_map()
         self.create_timer(1,self.publish_map)
 
