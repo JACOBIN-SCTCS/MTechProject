@@ -27,7 +27,7 @@ class MapProcessor(Node):
         self.OCC_PROB = 0.8
         self.PRIOR_PROB = 0.5
 
-        self.CONVERSION_FACTOR = 50
+        self.CONVERSION_FACTOR = 100
         self.RANGE_MAX = 1.0
 
         self.l_occ = self.log_prob(self.OCC_PROB)
@@ -65,31 +65,21 @@ class MapProcessor(Node):
         self.occupancy_grid.info.resolution = 0.01
         self.occupancy_grid.header.frame_id = self.robot_name+'_map'
         self.occupancy_grid.data = [-1 for i in range(self.GRID_SIZE*self.GRID_SIZE)]
+        self.occupancy_grid.info.origin.position.x  = -self.WORLD_SIZE/2
+        self.occupancy_grid.info.origin.position.y  = -self.WORLD_SIZE/2
+
         self.log_map = np.array([[self.l_prior for i in range(self.GRID_SIZE)] for j in range(self.GRID_SIZE)])
+        
 
     def log_prob(self,p_x):
-        return math.log(p_x / (1-p_x))
-
-    def quarternion_to_euler(self,quat):
-        x = quat.x
-        y = quat.y
-        z = quat.z
-        w = quat.w
-        
-        t0 = +2.0 * (w * x + y * z)
-        t1 = +1.0 - 2.0 * (x * x + y * y)
-        roll_x = math.atan2(t0, t1)
-     
-        t2 = +2.0 * (w * y - z * x)
-        t2 = +1.0 if t2 > +1.0 else t2
-        t2 = -1.0 if t2 < -1.0 else t2
-        pitch_y = math.asin(t2)
-     
-        t3 = +2.0 * (w * z + x * y)
-        t4 = +1.0 - 2.0 * (y * y + z * z)
-        yaw_z = math.atan2(t3, t4)
-     
-        return roll_x, pitch_y, yaw_z # in radians
+        return math.log(p_x / (1.0-p_x))
+    
+    def prob_value(self,log_prob):
+        try:
+            prob_value = 1.0 - 1.0/(1.0+math.exp(log_prob))
+        except:
+            prob_value = 0.0 
+        return prob_value
 
 
     def map_callback(self,laser_scan : LaserScan,odom : Odometry):
@@ -101,14 +91,17 @@ class MapProcessor(Node):
         try:
             grid_x_position = int(self.CONVERSION_FACTOR*odom.pose.pose.position.x)
             grid_y_poisition = int(self.CONVERSION_FACTOR*odom.pose.pose.position.y)
-            orientation = self.quarternion_to_euler(odom.pose.pose.orientation)
+            q = odom.pose.pose.orientation
+            yaw = math.atan2(+2.0 * (q.w * q.z + q.x * q.y),+1.0 - 2.0 * (q.y * q.y + q.z * q.z))
         
             for i in range(len(laser_scan.ranges)):
                 measurement = self.CONVERSION_FACTOR*min(laser_scan.range_max,laser_scan.ranges[i])
-                reflected_x_position = int(grid_x_position + measurement*math.cos(current_angle + orientation[2]))
-                reflected_y_position = int(grid_y_poisition + measurement*math.sin(current_angle + orientation[2]))
+                reflected_x_position = int(grid_x_position + measurement*math.cos(current_angle + yaw))
+                reflected_y_position = int(grid_y_poisition + measurement*math.sin(current_angle + yaw))
                 current_angle+= ANGLE_INCREMENT
                 self.bressenhams_line_drawing_algorithm((grid_x_position,grid_y_poisition),(reflected_x_position,reflected_y_position),measurement)
+                now = self.get_clock().now()
+                self.occupancy_grid.header.stamp = now.to_msg()
                 self.map_publisher.publish(self.occupancy_grid)
 
         except:
@@ -159,15 +152,9 @@ class MapProcessor(Node):
         
         for i in range(len(points)-1):
             self.log_map[(self.GRID_SIZE>>1)-1 + points[i][0]][(self.GRID_SIZE>>1)-1+ points[i][1]] += self.l_non_occ
-            
-            try:
-                probability_value  = 1 - 1/(1+math.exp(self.log_map[(self.GRID_SIZE>>1)-1 + points[i][0]][(self.GRID_SIZE>>1)-1+ points[i][1]]))
-            except OverflowError:
-                probability_value = float('-inf')
-                self.get_logger().info("Overflow error")
-
-
-
+        
+            probability_value  = self.prob_value(self.log_map[(self.GRID_SIZE>>1)-1 + points[i][0]][(self.GRID_SIZE>>1)-1+ points[i][1]])
+        
             if(probability_value > 0.5):
                 self.occupancy_grid.data[((self.GRID_SIZE>>1)-1 + points[i][0])*self.GRID_SIZE + ((self.GRID_SIZE>>1) -1 + points[i][1])] = 100
             else:
@@ -179,20 +166,13 @@ class MapProcessor(Node):
         else:
             self.log_map[(self.GRID_SIZE>>1)-1 + points[len(points)-1][0]][(self.GRID_SIZE>>1)-1 + points[len(points)-1][1]] += (self.l_prior)
 
-
-        try:
-            probability_value = max(float('-inf'), 1 - float(1/(1 + math.exp(self.log_map[(self.GRID_SIZE>>1)-1 + points[len(points)-1][0]][(self.GRID_SIZE>>1)-1+ points[len(points)-1][1]]))))
-        except OverflowError:
-            probability_value = float('-inf')
-            self.get_logger().info("Overflow error")
-
-
+        probability_value = max(float('-inf'), self.prob_value(self.log_map[(self.GRID_SIZE>>1)-1 + points[len(points)-1][0]][(self.GRID_SIZE>>1)-1+ points[len(points)-1][1]]))
         if(probability_value >= 0.8):
             self.occupancy_grid.data[((self.GRID_SIZE>>1)-1 + points[len(points)-1][0])*self.GRID_SIZE + ((self.GRID_SIZE>>1) -1 + points[len(points)-1][1])] = 100
         else:
             self.occupancy_grid.data[((self.GRID_SIZE>>1)-1 + points[len(points)-1][0])*self.GRID_SIZE + ((self.GRID_SIZE>>1) -1 + points[len(points)-1][1])] = 0
 
-        return points
+        #return points
 
 def main():
     args = sys.argv[1:]
