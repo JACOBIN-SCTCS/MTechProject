@@ -9,14 +9,20 @@ from rclpy.qos import QoSProfile,DurabilityPolicy,HistoryPolicy,ReliabilityPolic
 from tf2_ros import StaticTransformBroadcaster
 import math
 import numpy as np
+import sys
 
 
 class MapProcessor(Node):
     
-    def __init__(self):
-        super().__init__('robot_1_map_processor')
+    def __init__(self,robot_name='robot_1',world_size=20):
+        super().__init__(robot_name+'_map_processor')
 
-        self.GRID_SIZE = 20 * 100
+        self.robot_name = robot_name
+        self.robot_number = int(self.robot_name[6:])
+        self.WORLD_SIZE = world_size
+        self.RESOLUTION = 0.01
+        self.GRID_SIZE = int(self.WORLD_SIZE/self.RESOLUTION)
+
         self.NON_OCC_PROB = 0.2
         self.OCC_PROB = 0.8
         self.PRIOR_PROB = 0.5
@@ -29,14 +35,14 @@ class MapProcessor(Node):
         self.l_non_occ = self.log_prob(self.NON_OCC_PROB)
 
 
-        laser_sub = Subscriber(self,LaserScan,'robot_1/laser/out')
-        odom_sub  = Subscriber(self,Odometry,'robot_1/odom')
+        laser_sub = Subscriber(self,LaserScan,self.robot_name+'/laser/out')
+        odom_sub  = Subscriber(self,Odometry,self.robot_name+'/odom')
 
         #ts = message_filters.TimeSynchronizer([laser_sub,odom_sub],10)
         ts = message_filters.ApproximateTimeSynchronizer([laser_sub,odom_sub],20,0.5)
         ts.registerCallback(self.map_callback)
 
-        self.map_publisher = self.create_publisher(OccupancyGrid,'robot1_map',qos_profile=QoSProfile(
+        self.map_publisher = self.create_publisher(OccupancyGrid,self.robot_name+'_map',qos_profile=QoSProfile(
                 depth=1,
                 durability=DurabilityPolicy.TRANSIENT_LOCAL,
                 reliability=ReliabilityPolicy.RELIABLE,
@@ -47,7 +53,7 @@ class MapProcessor(Node):
         tf = TransformStamped()
         tf.header.stamp = self.get_clock().now().to_msg()
         tf.header.frame_id = 'world_frame'
-        tf.child_frame_id = 'robot1_map'
+        tf.child_frame_id = self.robot_name+'_map'
         tf.transform.translation.x = 0.0
         tf.transform.translation.y = 0.0
         tf.transform.translation.z = 0.0
@@ -57,7 +63,7 @@ class MapProcessor(Node):
         self.occupancy_grid.info.width = self.GRID_SIZE
         self.occupancy_grid.info.height = self.GRID_SIZE
         self.occupancy_grid.info.resolution = 0.01
-        self.occupancy_grid.header.frame_id = 'robot1_map'
+        self.occupancy_grid.header.frame_id = self.robot_name+'_map'
         self.occupancy_grid.data = [-1 for i in range(self.GRID_SIZE*self.GRID_SIZE)]
         self.log_map = np.array([[self.l_prior for i in range(self.GRID_SIZE)] for j in range(self.GRID_SIZE)])
 
@@ -188,9 +194,10 @@ class MapProcessor(Node):
 
         return points
 
-def main(args=None):
-    rclpy.init(args=args)
-    processor = MapProcessor()
+def main():
+    args = sys.argv[1:]
+    rclpy.init()
+    processor = MapProcessor(robot_name=args[0],world_size=int(args[1]))
     rclpy.spin(processor)
     processor.destroy_node()
     rclpy.shutdown()
