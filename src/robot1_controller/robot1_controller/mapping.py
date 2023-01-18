@@ -26,8 +26,8 @@ class MapProcessor(Node):
         self.WORLD_ORIGIN_Y = -(self.WORLD_SIZE/2.0)
 
 
-        self.NON_OCC_PROB = 0.2
-        self.OCC_PROB = 0.8
+        self.NON_OCC_PROB = 0.8
+        self.OCC_PROB = 0.2
         self.PRIOR_PROB = 0.5
         self.P0 = 0.1
 
@@ -103,34 +103,40 @@ class MapProcessor(Node):
 
 
     def publish_map(self):
+        self.get_logger().info("Inside publish_map : About to publish map")
         now = self.get_clock().now()
         self.occupancy_grid.header.stamp = now.to_msg()
         self.occupancy_grid.data = self.occupancy_grid_data.tolist()
         self.map_publisher.publish(self.occupancy_grid)
+        self.get_logger().info("Inside publish_map : Published map")
+
 
 
     def update_map(self, msg: LaserScan):
+        self.get_logger().info("Inside update_map : Going to update map")
         robot_rotation = None
         robot_translation = None
-
+        #self.get_logger().info("inside update map")
         try:
             transformation = self.tf_buffer.lookup_transform(target_frame='chassis'+str(self.robot_number),source_frame='odom',time=msg.header.stamp)
             q = transformation.transform.rotation
             robot_rotation = math.atan2(+2.0 * (q.w * q.z + q.x * q.y),+1.0 - 2.0 * (q.y * q.y + q.z * q.z))
             robot_translation = transformation.transform.translation
-            #self.get_logger().info(str(robot_translation))
         except:
             return
+        
         
         lidar_coord_values = []
         laser_range_angle = robot_rotation + msg.angle_min
         for laser_range in msg.ranges:
-            if laser_range < msg.range_min or laser_range > msg.range_max:
+            laser_range_val = min(laser_range,msg.range_max)
+            if laser_range_val < msg.range_min or laser_range_val > msg.range_max:
                 continue
-            world_laser_x = robot_translation.x + laser_range * math.cos(laser_range_angle)
-            world_laser_y = robot_translation.y + laser_range * math.sin(laser_range_angle)
+            world_laser_x = robot_translation.x + laser_range_val * math.cos(laser_range_angle)
+            world_laser_y = robot_translation.y + laser_range_val * math.sin(laser_range_angle)
+            #self.get_logger().info(str(world_laser_x)+","+str(world_laser_y))
             lidar_sensor_value = self.l_occ
-            if(laser_range == msg.range_max):
+            if(laser_range_val == msg.range_max):
                 lidar_sensor_value = self.l_non_occ
             lidar_coord_values.append((world_laser_x,world_laser_y,lidar_sensor_value))
             laser_range_angle = laser_range_angle + msg.angle_increment
@@ -143,18 +149,21 @@ class MapProcessor(Node):
             for i in range(len(points)):
                 self.log_map[(self.GRID_SIZE>>1) + points[i][0],(self.GRID_SIZE>>1) + points[i][1]] += (self.l_non_occ - self.l0)
                 cell_prob = self.actual_prob(self.log_map[(self.GRID_SIZE>>1) + points[i][0],(self.GRID_SIZE>>1) + points[i][1]])
-                cell_value = int(100*cell_prob)
+                cell_value = int(100*(1-cell_prob))
                 self.occupancy_grid_data[(points[i][0]-int(self.WORLD_ORIGIN_X/self.RESOLUTION))*(int(self.GRID_SIZE)) + (points[i][1]-int(self.WORLD_ORIGIN_Y/self.RESOLUTION))] = cell_value
             
             self.log_map[(self.GRID_SIZE>>1) + laser_position_grid[0],(self.GRID_SIZE>>1) +  laser_position_grid[1]] += ( lidar_vals[2] - self.l0)
             cell_prob = self.actual_prob(self.log_map[(self.GRID_SIZE>>1) + laser_position_grid[0],(self.GRID_SIZE>>1) + laser_position_grid[1]])
-            cell_value = int(100*cell_prob)
+            cell_value = int(100*(1-cell_prob))
             self.occupancy_grid_data[(laser_position_grid[0]-int(self.WORLD_ORIGIN_X/self.RESOLUTION))*(int(self.GRID_SIZE)) + (laser_position_grid[1]-int(self.WORLD_ORIGIN_Y/self.RESOLUTION))] = cell_value
         
         for i in range(self.GRID_SIZE):
             self.occupancy_grid_data[i*self.GRID_SIZE + i] = 0
-        self.get_logger().info("new data has been added")   
+        #self.get_logger().info("new data has been added")   
+
         self.publish_map()
+        self.get_logger().info("Inside update_map : Updated map")
+
 
     def map_callback(self,laser_scan : LaserScan,odom : Odometry):
                 
