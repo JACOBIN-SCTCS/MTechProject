@@ -6,7 +6,7 @@ import message_filters
 from message_filters import Subscriber
 from geometry_msgs.msg import TransformStamped
 from rclpy.qos import QoSProfile,DurabilityPolicy,HistoryPolicy,ReliabilityPolicy
-from tf2_ros import StaticTransformBroadcaster
+from tf2_ros import StaticTransformBroadcaster,Buffer,TransformListener
 import math
 import numpy as np
 import sys
@@ -35,12 +35,12 @@ class MapProcessor(Node):
         self.l_non_occ = self.log_prob(self.NON_OCC_PROB)
 
 
-        laser_sub = Subscriber(self,LaserScan,self.robot_name+'/laser/out')
-        odom_sub  = Subscriber(self,Odometry,self.robot_name+'/odom')
+        #laser_sub = Subscriber(self,LaserScan,self.robot_name+'/laser/out')
+        #odom_sub  = Subscriber(self,Odometry,self.robot_name+'/odom')
 
         #ts = message_filters.TimeSynchronizer([laser_sub,odom_sub],10)
-        ts = message_filters.ApproximateTimeSynchronizer([laser_sub,odom_sub],20,0.5)
-        ts.registerCallback(self.map_callback)
+        #ts = message_filters.ApproximateTimeSynchronizer([laser_sub,odom_sub],20,0.5)
+        #ts.registerCallback(self.map_callback)
 
         self.map_publisher = self.create_publisher(OccupancyGrid,self.robot_name+'_map',qos_profile=QoSProfile(
                 depth=1,
@@ -69,7 +69,11 @@ class MapProcessor(Node):
         self.occupancy_grid.info.origin.position.y  = -self.WORLD_SIZE/2
 
         self.log_map = np.array([[self.l_prior for i in range(self.GRID_SIZE)] for j in range(self.GRID_SIZE)])
-        
+
+
+        self.tf_buffer = Buffer()
+        self.tf_listener =  TransformListener(self.tf_buffer,self)
+        self.laser_subscriber = self.create_subscription(LaserScan,self.robot_name+'/laser/out',self.map_callback_no_odom,10)
 
     def log_prob(self,p_x):
         return math.log(p_x / (1.0-p_x))
@@ -81,6 +85,43 @@ class MapProcessor(Node):
             prob_value = 0.0 
         return prob_value
 
+    def map_callback_no_odom(self, msg : LaserScan):
+                
+        MIN_ANGLE = msg.angle_min
+        ANGLE_INCREMENT = msg.angle_increment
+        current_angle = MIN_ANGLE
+
+    
+        #self.get_logger().info("inside update map")
+    
+        try:
+            q = None
+            odom = None
+            try:
+                self.get_logger().info(str(msg.header.stamp))
+                transformation = self.tf_buffer.lookup_transform(target_frame='chassis'+str(self.robot_number),source_frame='odom',time=msg.header.stamp)
+                q = transformation.transform.rotation
+                odom = transformation.transform.translation
+            except:
+                self.get_logger().info("Failed to get the TF transform")
+ 
+            grid_x_position = int(self.CONVERSION_FACTOR*odom.x)
+            grid_y_poisition = int(self.CONVERSION_FACTOR*odom.y)
+            q = odom.pose.pose.orientation
+            yaw = math.atan2(+2.0 * (q.w * q.z + q.x * q.y),+1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+        
+            for i in range(len(msg.ranges)):
+                measurement = self.CONVERSION_FACTOR*min(msg.range_max,msg.ranges[i])
+                reflected_x_position = int(grid_x_position + measurement*math.cos(current_angle + yaw))
+                reflected_y_position = int(grid_y_poisition + measurement*math.sin(current_angle + yaw))
+                current_angle+= ANGLE_INCREMENT
+                self.bressenhams_line_drawing_algorithm((grid_x_position,grid_y_poisition),(reflected_x_position,reflected_y_position),measurement)
+                now = self.get_clock().now()
+                self.occupancy_grid.header.stamp = now.to_msg()
+                self.map_publisher.publish(self.occupancy_grid)
+
+        except:
+            self.get_logger().info("failed to parse")
 
     def map_callback(self,laser_scan : LaserScan,odom : Odometry):
                 
