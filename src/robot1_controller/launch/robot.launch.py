@@ -16,11 +16,17 @@ def generate_launch_description():
     
     use_sim_time = LaunchConfiguration('use_sim_time',default=True)
     robot_instances = [
-        Node(package=package_name, executable='robot_1_map_processor',
+        Node(package=package_name, executable='robot_map_processor',
                             arguments=[robot_names[i],str(robot_world_sizes[i])],
             )
        for i in range(len(robot_names))
     ]
+    robot_motion_controllers = [
+        Node(package=package_name, executable='robot_motion_planner')
+        for i in range(len(robot_names))
+    ]
+
+    #nodes = robot_instances + robot_motion_controllers
     '''robot_1_motion = Node(
         package=package_name,
         executable='robot_1_motion_planner'

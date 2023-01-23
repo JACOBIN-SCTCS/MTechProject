@@ -7,15 +7,13 @@ import math
 
 class MotionRobot1(Node):
 
-    def __init__(self):
-        super().__init__('robot_1_motion_handler')
-        
+    def __init__(self,robot_name='robot_1'):
+        super().__init__(robot_name+'_motion_handler')
+        self.robot_name =  robot_name
         self.waypoints_to_follow = [ 
-                (0,-1),
-                (0,-2), (0,-3) , (0,-4),
-                (-1,-5),
-                (-2,-6),
-                (-3,-6),
+                (0,1),
+                (0,2),
+                (0,3)
         ]
         self.absolute_difference_threshhold = 0.1
 
@@ -23,10 +21,10 @@ class MotionRobot1(Node):
         self.current_waypoint_index = 0
         self.count = 0
         self.range_threshhold = 0.6
-        self.twist_publisher = self.create_publisher(Twist,'/robot_1/cmd_vel',10)
+        self.twist_publisher = self.create_publisher(Twist,'/'+self.robot_name+'/cmd_vel',10)
         self.odom_subscription = self.create_subscription(
             Odometry,
-            '/robot_1/odom',
+            '/'+self.robot_name+'/odom',
             self.odom_callback,
             10
         )
@@ -56,32 +54,15 @@ class MotionRobot1(Node):
         self.twist_publisher.publish(twist_message)'''
 
 
-    def quarternion_to_euler(self,quat):
-        x = quat.x
-        y = quat.y
-        z = quat.z
-        w = quat.w
-        
-        t0 = +2.0 * (w * x + y * z)
-        t1 = +1.0 - 2.0 * (x * x + y * y)
-        roll_x = math.atan2(t0, t1)
-     
-        t2 = +2.0 * (w * y - z * x)
-        t2 = +1.0 if t2 > +1.0 else t2
-        t2 = -1.0 if t2 < -1.0 else t2
-        pitch_y = math.asin(t2)
-     
-        t3 = +2.0 * (w * z + x * y)
-        t4 = +1.0 - 2.0 * (y * y + z * z)
-        yaw_z = math.atan2(t3, t4)
-     
-        return roll_x, pitch_y, yaw_z # in radians
-
     def odom_callback(self,msg : Odometry):
         
         twist_message = Twist()
         position = msg.pose.pose.position
-        orientation  = self.quarternion_to_euler(msg.pose.pose.orientation)
+        q = msg.pose.pose.orientation    
+        t1 = +2.0 * (q.w * q.z + q.x * q.y)
+        t2 = +1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+    
+        orientation  = math.atan2(t1,t2)
         if(self.current_waypoint_index == len(self.waypoints_to_follow)):
                 self.get_logger().info("completed all waypoints")
                 return twist_message
@@ -93,12 +74,11 @@ class MotionRobot1(Node):
             self.twist_publisher.publish(twist_message)
             self.current_waypoint_index +=1 
           
-            
 
         angle_to_goal = math.atan2(inc_y,inc_x)
-        if(abs(angle_to_goal - orientation[2]) > self.absolute_difference_threshhold):
+        if(abs(angle_to_goal - orientation) > self.absolute_difference_threshhold):
             #self.get_logger().info(str(abs(angle_to_goal - orientation[2])))
-            twist_message.angular.z = 0.2
+            twist_message.angular.z = 0.3
             twist_message.linear.x = 0.0
         else:
             twist_message.linear.x = 0.3
@@ -110,9 +90,9 @@ class MotionRobot1(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    motion_robot1 = MotionRobot1()
-    rclpy.spin(motion_robot1)
-    motion_robot1.destroy_node()
+    motion_robot = MotionRobot1(robot_name='robot_1')
+    rclpy.spin(motion_robot)
+    motion_robot.destroy_node()
     rclpy.shutdown()
 
 

@@ -24,8 +24,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'robot_1_map_processor = ' + package_name + '.mapping:main',
-            'robot_1_motion_planner = '+ package_name + '.robot_motion:main'
+            'robot_map_processor = ' + package_name + '.mapping:main',
+            'robot_motion_planner = '+ package_name + '.robot_motion:main'
         ],
     },
 )
