@@ -28,7 +28,7 @@ class MapProcessor(Node):
         self.OCC_PROB = 0.8
         self.PRIOR_PROB = 0.5
 
-        self.CONVERSION_FACTOR = 100
+        self.CONVERSION_FACTOR = 50
         self.RANGE_MAX = 1.0
 
         self.l_occ = self.log_prob(self.OCC_PROB)

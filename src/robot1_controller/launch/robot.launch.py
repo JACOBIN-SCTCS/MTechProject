@@ -26,9 +26,10 @@ def generate_launch_description():
         for i in range(len(robot_names))
     ]
 
+    nodes  = robot_instances
     #nodes = robot_instances + robot_motion_controllers
     '''robot_1_motion = Node(
         package=package_name,
         executable='robot_1_motion_planner'
     )'''
-    return LaunchDescription(robot_instances)
+    return LaunchDescription(nodes)
