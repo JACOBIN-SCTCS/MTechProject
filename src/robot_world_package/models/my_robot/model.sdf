@@ -295,7 +295,7 @@
          <right_joint>right_wheel_hinge</right_joint>
 
          <!-- kinematics -->
-         <wheel_separation>0.34</wheel_separation>
+         <wheel_separation>0.327</wheel_separation>
          <wheel_diameter>0.22</wheel_diameter>
 
          <!-- limits -->
