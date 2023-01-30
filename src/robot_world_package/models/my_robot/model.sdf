@@ -249,7 +249,7 @@
     </plugin>-->
 
     <link name='ultrasonic_link'>
-            <sensor name="ultrasonic_1" type="ray">
+            <sensor name="ultrasonic" type="ray">
               <pose>0 0 .34 0 0 0</pose>
               <always_on>true</always_on>
               <visualize>true</visualize>
@@ -269,7 +269,7 @@
                     <resolution>0.05</resolution>
                   </range>
                 </ray>
-              <plugin name="ultrasonic_sensor_1" filename="libgazebo_ros_ray_sensor.so">
+              <plugin name="ultrasonic_sensor" filename="libgazebo_ros_ray_sensor.so">
                 <ros>
                   <namespace>/robot</namespace> 
                   <remapping>~/out:=ultrasonic_sensor_1</remapping>
@@ -305,7 +305,7 @@
          <!-- output -->
          <publish_odom>true</publish_odom>
          <publish_odom_tf>true</publish_odom_tf>
-         <publish_wheel_tf>false</publish_wheel_tf>
+         <publish_wheel_tf>true</publish_wheel_tf>
 
          <odometry_frame>odom</odometry_frame>
          <robot_base_frame>chassis</robot_base_frame>
