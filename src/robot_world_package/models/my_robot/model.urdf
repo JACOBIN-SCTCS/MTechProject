@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <robot name="turtlebot3_burger" xmlns:xacro="http://ros.org/wiki/xacro">
  
+  <xacro:arg name="robot_number" default="robot_1"/>
 
   <!-- Init colour -->  
   <material name="black">
@@ -277,7 +278,7 @@
           <remapping>~/out:=scan</remapping>
         </ros>
         <output_type>sensor_msgs/LaserScan</output_type>
-        <frame_name>lidar_link</frame_name>
+        <frame_name>$(arg robot_number)/base_scan</frame_name>
       </plugin>
     </sensor>
   </gazebo>
@@ -289,8 +290,8 @@
       <odometry_frame>odom</odometry_frame>
       <publish_odom>true</publish_odom>
       <publish_odom_tf>true</publish_odom_tf>
-      <publish_wheel_tf>true</publish_wheel_tf>
-      <robot_base_frame>base_footprint</robot_base_frame>
+      <publish_wheel_tf>false</publish_wheel_tf>
+      <robot_base_frame>$(arg robot_number)/base_footprint</robot_base_frame>
       <publish_tf>true</publish_tf>
       <publish_wheel_jointState>true</publish_wheel_jointState>
       <legacy_mode>false</legacy_mode>
