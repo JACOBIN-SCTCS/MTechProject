@@ -19,7 +19,11 @@ setup(
         # Path to the warehouse sdf file
         #(os.path.join('share', package_name,'models/my_robot1/'), glob('./models/my_robot1/*')),
         #(os.path.join('share', package_name,'models/my_robot2/'), glob('./models/my_robot2/*')),
-        (os.path.join('share', package_name,'models/my_robot/'), glob('./models/my_robot/*')),
+        (os.path.join('share', package_name,'models/my_robot/'), glob('./models/my_robot/model.urdf')),
+        (os.path.join('share', package_name,'models/my_robot/'), glob('./models/my_robot/model.sdf')),
+        (os.path.join('share', package_name,'models/my_robot/'), glob('./models/my_robot/model.config')),
+        (os.path.join('share', package_name,'models/my_robot/meshes'), glob('./models/my_robot/meshes/*')),
+
 
         # Path to the mobile robot sdf file
         #(os.path.join('share', package_name,'models/mobile_warehouse_robot/'), glob('./models/mobile_warehouse_robot/*')),

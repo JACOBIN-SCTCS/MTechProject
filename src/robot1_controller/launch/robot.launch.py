@@ -8,7 +8,7 @@ from launch.substitutions import LaunchConfiguration
 
 package_name = 'robot1_controller'
 
-MAX_ROBOTS = 2
+MAX_ROBOTS = 1
 robot_names = ['robot_'+str(i) for i in range(1,MAX_ROBOTS+1)]
 robot_world_sizes  = [20 for i in range(MAX_ROBOTS)]
 

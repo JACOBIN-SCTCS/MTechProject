@@ -36,7 +36,7 @@ class MapProcessor(Node):
         self.l_non_occ = self.log_prob(self.NON_OCC_PROB)
 
 
-        laser_sub = Subscriber(self,LaserScan,self.robot_name+'/laser/out')
+        laser_sub = Subscriber(self,LaserScan,self.robot_name+'/scan')
         odom_sub  = Subscriber(self,Odometry,self.robot_name+'/odom')
 
         ts = message_filters.TimeSynchronizer([laser_sub,odom_sub],10)
