@@ -41,7 +41,7 @@ def generate_launch_description():
             executable='robot_state_publisher',
             name = 'robot_state_publisher',
             namespace='robot_' + str(i+1),
-            parameters=[{'frame_prefix': 'robot_'+str(i+1)+'/','use_sim_time':True, 'robot_description': Command(['xacro ', sdf_file_path]) }],
+            parameters=[{'frame_prefix': 'robot_'+str(i+1)+'/','use_sim_time':True, 'robot_description': Command(['xacro ', sdf_file_path,' robot_number:=',str(i+1)]) }],
             output='screen'
         )
 
@@ -54,7 +54,7 @@ def generate_launch_description():
             executable='joint_state_publisher',
             name='joint_state_publisher',
             namespace='robot_' + str(i+1),
-            parameters=[{'frame_prefix': 'robot_'+str(i+1)+'/','use_sim_time':True, 'robot_description': Command(['xacro ', sdf_file_path]) }],
+            parameters=[{'frame_prefix': 'robot_'+str(i+1)+'/','use_sim_time':True, 'robot_description': Command(['xacro ', sdf_file_path,' robot_number:=',str(i+1)]) }],
             output='screen'
         )
         for i in range(len(robot_coordinates))

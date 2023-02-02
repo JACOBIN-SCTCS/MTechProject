@@ -73,7 +73,7 @@ def main():
         "my_robot", "model.urdf")
 
     #sdf_text = open(sdf_file_path,'r').read()
-    sdf_text = xacro.process_file(sdf_file_path)
+    sdf_text = xacro.process_file(sdf_file_path,mappings={'robot_number':'robot_' + str(robot_number)})
     xml = sdf_text.toxml()
     #sdf_text = subprocess.check_output(['xacro',sdf_file_path]).decode()
     #sdf_tree = ET.fromstring(sdf_text)
