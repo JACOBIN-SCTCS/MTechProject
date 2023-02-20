@@ -1,6 +1,6 @@
 import os
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import IncludeLaunchDescription,DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import ThisLaunchFileDir,LaunchConfiguration,Command
 from launch_ros.actions import Node
@@ -14,6 +14,11 @@ world_file_name = 'maze.world'
 def generate_launch_description():
     
     use_sim_time = LaunchConfiguration('use_sim_time',default=True)
+    declare_use_sim_time_argument = DeclareLaunchArgument(
+        'use_sim_time',
+        default_value='true',
+        description='Use simulation/Gazebo clock')
+
     pkg_dir = get_package_share_directory(package_name)
     
     sdf_file_path = os.path.join(
@@ -69,5 +74,6 @@ def generate_launch_description():
                         for i in range(len(robot_coordinates))
                     ]
     nodes = [gazebo] + robot_state_publishers+ joint_state_publishers + robot_instances 
-    
-    return LaunchDescription(nodes)
+    ld = LaunchDescription(nodes)
+    ld.add_action(declare_use_sim_time_argument)
+    return ld
