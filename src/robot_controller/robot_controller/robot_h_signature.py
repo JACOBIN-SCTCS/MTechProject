@@ -8,6 +8,7 @@ import numpy as np
 from rclpy.action import ActionClient
 from nav2_msgs.action import NavigateToPose
 from action_msgs.msg import GoalStatus
+import math
 
 class TopologicalExplore(Node):
 
@@ -36,7 +37,7 @@ class TopologicalExplore(Node):
         if not goal_handle.accepted:
             self.get_logger().info('Exploration goal rejected')
             return
-        self.get_logger().info('Navigation goal rejected')
+        #self.get_logger().info('Navigation goal rejected')
         self._get_result_future  = goal_handle.get_result_async()
         self._get_result_future.add_done_callback(self.get_result_callback)
     
@@ -52,15 +53,15 @@ class TopologicalExplore(Node):
         self.exploration_client.wait_for_server()
         goal_msg = NavigateToPose.Goal()
         goal_msg.pose.header.frame_id='map'
-        goal_msg.pose.pose.position.x = 0.0
-        goal_msg.pose.pose.position.y = -1.0
+        goal_msg.pose.pose.position.x = 0.3
+        goal_msg.pose.pose.position.y = -0.3
         
         self._send_goal_future = self.exploration_client.send_goal_async(goal_msg)
         self._send_goal_future.add_done_callback(self.goal_response_callback)
-        rclpy.spin_until_future_complete(self,self._send_goal_future)
-        goal_handle = self._send_goal_future.result()
-        get_result_future = goal_handle.get_result_async()
-        rclpy.spin_until_future_complete(self,get_result_future)
+        #rclpy.spin_until_future_complete(self,self._send_goal_future)
+        #goal_handle = self._send_goal_future.result()
+        #get_result_future = goal_handle.get_result_async()
+        #rclpy.spin_until_future_complete(self,get_result_future)
 
 
 
@@ -68,8 +69,42 @@ class TopologicalExplore(Node):
         if not self.navigating:
             self.send_goal()
             self.navigating = True
+        self.get_logger().info("Map Origin = ("+str(msg.info.origin.position.x)+"," + str(msg.info.origin.position.y)+")")
+        
+        np_map = np.array(msg.data,dtype=np.float32)
+        np_map = np.reshape(np_map,(-1,msg.info.width))
+        
+
+        t = None
         try:
-            t  = self.tf_buffer.lookup_transform('robot_1/base_footprint','map',rclpy.time.Time())
+            t = self.tf_buffer.lookup_transform('map','robot_1/base_link',rclpy.time.Time())
+        except Exception as ex:
+            self.get_logger().info('Could not find the transformation')
+        if t is None:
+            return
+
+        map_x = t.transform.translation.x - msg.info.origin.position.x 
+        map_y = t.transform.translation.y - msg.info.origin.position.y 
+        map_resolution = msg.info.resolution
+        map_width = msg.info.width
+   
+
+        map_index = int(math.floor(map_y/map_resolution)*map_width + math.floor(map_x/map_resolution))
+        self.get_logger().info("The Map Index = " + str(map_index))
+        
+        row , col = divmod(map_index,map_width)
+        np_map[row,col] = 100
+        if self.count ==0:
+            f = open("/home/depressedcoder/sample.txt","w")
+            #self.get_logger().info(str(np.any(np_map>=100)))
+            #print(np.any(np_array>=255))
+            np.savetxt(f,np_map)
+            f.close()
+            self.count = 1
+
+            
+        '''try:
+            t  = self.tf_buffer.lookup_transform('map','robot_1/base_link',rclpy.time.Time())
             self.get_logger().info(str(t.transform.translation.x) + "," + str(t.transform.translation.y))
         except Exception as ex:
             self.get_logger().info('Could not find transform')
@@ -83,7 +118,7 @@ class TopologicalExplore(Node):
             #print(np.any(np_array>=255))
             np.savetxt(f,np_array)
             f.close()
-            self.count = 1
+            self.count = 1'''
             
 
 def main(args = None):
