@@ -45,7 +45,23 @@ class Edge:
             h_signature[i] = complex(real_part,min_value)
         #print(h_signature)
         return h_signature
+    
+    def helper_compute_signature_2(self,src,dest):
 
+        h_signature = np.zeros(src.shape[0])
+        values_to_test = [i for i in range(-2,3)]
+
+        for i in range(src.shape[0]):
+            minimum_phase_difference = (cmath.phase(dest[i])) - (cmath.phase(src[i]))
+            for j in values_to_test: 
+                for k in values_to_test:
+                    current_phase_difference = (cmath.phase(dest[i]) +2*math.pi*j)  - (cmath.phase(src[i]) + 2*math.pi*k)
+                    if abs(current_phase_difference) < abs(minimum_phase_difference):
+                        minimum_phase_difference = current_phase_difference
+            h_signature[i] = minimum_phase_difference
+            
+        return h_signature
+        
     def compute_h_signature(self,obstacle_coordinates):
         src_diff = self.src.point - obstacle_coordinates
         dest_diff = self.dest.point - obstacle_coordinates
@@ -66,7 +82,7 @@ class DijkstraNode:
     def __str__(self):
         return (str(self.point) + ";" + str(self.h_signature))
     
-    def compute_h_signature(self,parent):
+    def compute_h_signature(self,parent,obstacle_coordinates):
         self.edge.compute_h_signature(obstacle_coordinates)
         if parent is None:
             self.h_signature =  self.edge.h_signature
@@ -110,8 +126,8 @@ def dijkstra_algorithm(src,dest,obstacle_coordinates,map:OccupancyGrid):
     counter = 0
     for i in range(8):
         current_point = np.expand_dims(new_points[i],0)
-        d = DijkstraNode(current_point,1 + np.linalg.norm(current_point-end_node),Edge((start_node[0][0],start_node[0][1]),(new_points[i][0],new_points[i][1])))
-        d.compute_h_signature(None)
+        d = DijkstraNode(current_point,map[new_points[i][0],new_points[i][1]] + np.linalg.norm(current_point-end_node),Edge((start_node[0][0],start_node[0][1]),(new_points[i][0],new_points[i][1])))
+        d.compute_h_signature(None,obstacle_coordinates)
         heapq.heappush(heap,d)
     
     while heap:
@@ -138,7 +154,7 @@ def dijkstra_algorithm(src,dest,obstacle_coordinates,map:OccupancyGrid):
                 if counter >= COUNT_LIMIT:
                     break
                 greater_than_two = (1.0/(2*math.pi))*(item.h_signature)
-                print(np.any(greater_than_two>=1.0) or np.any(greater_than_two <= -1.0))
+                #print(np.any(greater_than_two>=1.0) or np.any(greater_than_two <= -1.0))
                 if np.any(greater_than_two>=1.0) or np.any(greater_than_two <= -1.0):
                     continue
 
@@ -163,14 +179,14 @@ def dijkstra_algorithm(src,dest,obstacle_coordinates,map:OccupancyGrid):
         new_points = item.point + directions
         for i in range(8):
             current_point = np.expand_dims(new_points[i],0)
-            d = DijkstraNode(current_point,item.cost+1 + np.linalg.norm(current_point-end_node),Edge((item.point[0][0],item.point[0][1]),(new_points[i][0],new_points[i][1])))
+            d = DijkstraNode(current_point,item.cost+ map[new_points[i][0],new_points[i][1]] + np.linalg.norm(current_point-end_node),Edge((item.point[0][0],item.point[0][1]),(new_points[i][0],new_points[i][1])))
               
             if(np.any(np.all(d.point==obstacle_coordinates,axis=1))):
                 continue
             
             #pygame.draw.circle(screen,(0,0,0),(offset + scale_x*d.point[0][0],offset +scale_y*d.point[0][1]),scale/8)
 
-            d.compute_h_signature(item)
+            d.compute_h_signature(item,obstacle_coordinates)
 
             if (str(d) in distance_count):
                 if distance_count[str(d)] > d.cost:
@@ -184,7 +200,8 @@ def dijkstra_algorithm(src,dest,obstacle_coordinates,map:OccupancyGrid):
 
 
 def get_trajectories(start_point,dest_point,obstacle_coordinates,map : OccupancyGrid):
-    pass
+    trajectories = dijkstra_algorithm(start_point,dest_point,obstacle_coordinates,map)
+    return trajectories
     
 
 #obstacle_coordinates = np.array([[3,3],[7,7],[4,3]])
