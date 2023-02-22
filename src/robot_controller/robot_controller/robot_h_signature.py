@@ -9,6 +9,10 @@ from rclpy.action import ActionClient
 from nav2_msgs.action import NavigateToPose
 from action_msgs.msg import GoalStatus
 import math
+from PIL import Image
+import cv2
+import matplotlib.pyplot as pyplot
+import robot_controller.robot_helper
 
 class TopologicalExplore(Node):
 
@@ -63,14 +67,28 @@ class TopologicalExplore(Node):
         #get_result_future = goal_handle.get_result_async()
         #rclpy.spin_until_future_complete(self,get_result_future)
 
+    def imshow_components(self,labels):
+    # Map component labels to hue val
+        label_hue = np.uint8(179*labels/np.max(labels))
+        blank_ch = 255*np.ones_like(label_hue)
+        labeled_img = cv2.merge([label_hue, blank_ch, blank_ch])
 
+        # cvt to BGR for display
+        labeled_img = cv2.cvtColor(labeled_img, cv2.COLOR_HSV2BGR)
+
+        # set bg label to black
+        labeled_img[label_hue==0] = 0
+
+        cv2.imshow('labeled.png', labeled_img)
+        pyplot.imshow(labeled_img)
+        pyplot.show()
 
     def map_callback(self,msg:OccupancyGrid):
         if not self.navigating:
             self.send_goal()
             self.navigating = True
         self.get_logger().info("Map Origin = ("+str(msg.info.origin.position.x)+"," + str(msg.info.origin.position.y)+")")
-        
+            
         np_map = np.array(msg.data,dtype=np.float32)
         np_map = np.reshape(np_map,(-1,msg.info.width))
         
@@ -93,16 +111,27 @@ class TopologicalExplore(Node):
         self.get_logger().info("The Map Index = " + str(map_index))
         
         row , col = divmod(map_index,map_width)
-        np_map[row,col] = 100
-        if self.count ==0:
-            f = open("/home/depressedcoder/sample.txt","w")
-            #self.get_logger().info(str(np.any(np_map>=100)))
-            #print(np.any(np_array>=255))
-            np.savetxt(f,np_map)
-            f.close()
-            self.count = 1
 
-            
+        if self.count == 1:
+            return
+
+        binary_t = (np_map == 100)
+        image = Image.fromarray(np.uint8(binary_t*255)).convert('RGB')
+        open_cv_image = np.array(image)
+        gray = cv2.cvtColor(open_cv_image,cv2.COLOR_BGR2GRAY)
+        binary_image = cv2.threshold(gray,0,255,cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+        ret,labels,stats,centroids  = cv2.connectedComponentsWithStatsWithAlgorithm(binary_image,connectivity=8,ltype=cv2.CV_32S,ccltype=cv2.CCL_GRANA)
+
+        for i in range(1,len(centroids)):
+            self.get_logger().info("Obstacle id = " + str(i))
+            current_obstacle = (labels==i)
+            current_obstacle_num_cells = np.count_nonzero(current_obstacle)
+            random_point = np.random.randint(current_obstacle_num_cells)
+            obstalcle_cells = np.nonzero(current_obstacle)
+            self.get_logger().info("Representative point = (" + str(obstalcle_cells[0][random_point]) + "," + str(obstalcle_cells[1][random_point])+")")
+            #labels[obstalcle_cells[0][random_point]][obstalcle_cells[1][random_point]] = len(centroids)
+        self.imshow_components(labels)
+        self.count = 1
         '''try:
             t  = self.tf_buffer.lookup_transform('map','robot_1/base_link',rclpy.time.Time())
             self.get_logger().info(str(t.transform.translation.x) + "," + str(t.transform.translation.y))
