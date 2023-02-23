@@ -103,13 +103,13 @@ class DijkstraNode:
     def __ge__(self, other):
         return (self.cost >= other.cost)
 
-def dijkstra_algorithm(src,dest,obstacle_coordinates,map:OccupancyGrid):
+def dijkstra_algorithm(src,dest,obstacle_coordinates,map):
     
     
-    TRAJECTORY_LIMIT = 50
-    COUNT_LIMIT = 50
-    width = map.info.width
-    height = map.info.height
+    TRAJECTORY_LIMIT = 2
+    COUNT_LIMIT = 2
+    width = map.shape[1]
+    height = map.shape[0]
 
     directions = np.array([[-1,1],[0,1],[1,1],[1,0],[1,-1],[0,-1],[-1,-1],[-1,0]])
     start_node = np.array([[src[0],src[1]]])
@@ -126,7 +126,8 @@ def dijkstra_algorithm(src,dest,obstacle_coordinates,map:OccupancyGrid):
     counter = 0
     for i in range(8):
         current_point = np.expand_dims(new_points[i],0)
-        d = DijkstraNode(current_point,map[new_points[i][0],new_points[i][1]] + np.linalg.norm(current_point-end_node),Edge((start_node[0][0],start_node[0][1]),(new_points[i][0],new_points[i][1])))
+        cost = 0 if map[new_points[i][0],new_points[i][1]]==-1 else map[new_points[i][0],new_points[i][1]]
+        d = DijkstraNode(current_point,cost + np.linalg.norm(current_point-end_node),Edge((start_node[0][0],start_node[0][1]),(new_points[i][0],new_points[i][1])))
         d.compute_h_signature(None,obstacle_coordinates)
         heapq.heappush(heap,d)
     
@@ -179,7 +180,10 @@ def dijkstra_algorithm(src,dest,obstacle_coordinates,map:OccupancyGrid):
         new_points = item.point + directions
         for i in range(8):
             current_point = np.expand_dims(new_points[i],0)
-            d = DijkstraNode(current_point,item.cost+ map[new_points[i][0],new_points[i][1]] + np.linalg.norm(current_point-end_node),Edge((item.point[0][0],item.point[0][1]),(new_points[i][0],new_points[i][1])))
+            if((0 > new_points[0][0] or new_points[0][0]>height or 0 > new_points[0][1] or new_points[0][1]>width)):
+                continue
+            cost = 0 if map[new_points[i][0],new_points[i][1]]==-1 else map[new_points[i][0],new_points[i][1]]
+            d = DijkstraNode(current_point,item.cost+ cost + np.linalg.norm(current_point-end_node),Edge((item.point[0][0],item.point[0][1]),(new_points[i][0],new_points[i][1])))
               
             if(np.any(np.all(d.point==obstacle_coordinates,axis=1))):
                 continue
@@ -199,7 +203,7 @@ def dijkstra_algorithm(src,dest,obstacle_coordinates,map:OccupancyGrid):
     return trajectories
 
 
-def get_trajectories(start_point,dest_point,obstacle_coordinates,map : OccupancyGrid):
+def get_trajectories(start_point,dest_point,obstacle_coordinates,map):
     trajectories = dijkstra_algorithm(start_point,dest_point,obstacle_coordinates,map)
     return trajectories
     

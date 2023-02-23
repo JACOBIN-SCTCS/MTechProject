@@ -12,8 +12,9 @@ import math
 from PIL import Image
 import cv2
 import matplotlib.pyplot as pyplot
-import robot_controller.robot_helper
+from robot_controller.robot_helper import get_trajectories
 from nav_msgs.msg import Path
+from geometry_msgs.msg import PoseStamped
 
 class TopologicalExplore(Node):
 
@@ -36,6 +37,7 @@ class TopologicalExplore(Node):
 
         self.path_publisher = self.create_publisher(Path,'h_signature_path',10)
         self.exploration_client = ActionClient(self,NavigateToPose,'navigate_to_pose')
+        self.path = Path()
 
 
     def goal_response_callback(self,future):
@@ -117,6 +119,7 @@ class TopologicalExplore(Node):
         np.savetxt(f,np_map)
         f.close()
 
+        self.path_publisher.publish(self.path)
         if self.count == 1:
             return
 
@@ -140,8 +143,19 @@ class TopologicalExplore(Node):
             
 
         obstacles = np.array(obstacle_coordinates)
-        self.get_logger().info(str(obstacles))
+        #self.get_logger().info(str(obstacles))
         self.count = 1
+        trajectories = get_trajectories((row,col),(row+10,col),obstacles,np_map)
+        self.get_logger().info(str(trajectories))
+        
+        self.path.header.frame_id='map'
+        for traj_point in trajectories[0]:
+            p  =PoseStamped()
+            p.pose.position.x =  msg.info.origin.position.x  + traj_point[0] * map_resolution
+            p.pose.position.y =  msg.info.origin.position.y  + traj_point[1] * map_resolution
+            p.pose.orientation.w = 1.0
+            self.path.poses.append(p)
+        
         '''try:
             t  = self.tf_buffer.lookup_transform('map','robot_1/base_link',rclpy.time.Time())
             self.get_logger().info(str(t.transform.translation.x) + "," + str(t.transform.translation.y))
