@@ -13,6 +13,7 @@ from PIL import Image
 import cv2
 import matplotlib.pyplot as pyplot
 import robot_controller.robot_helper
+from nav_msgs.msg import Path
 
 class TopologicalExplore(Node):
 
@@ -33,6 +34,7 @@ class TopologicalExplore(Node):
         )
         self.map_subscriber
 
+        self.path_publisher = self.create_publisher(Path,'h_signature_path',10)
         self.exploration_client = ActionClient(self,NavigateToPose,'navigate_to_pose')
 
 
@@ -111,6 +113,9 @@ class TopologicalExplore(Node):
         self.get_logger().info("The Map Index = " + str(map_index))
         
         row , col = divmod(map_index,map_width)
+        f = open("/home/depressedcoder/sample.txt","w")
+        np.savetxt(f,np_map)
+        f.close()
 
         if self.count == 1:
             return
@@ -121,16 +126,21 @@ class TopologicalExplore(Node):
         gray = cv2.cvtColor(open_cv_image,cv2.COLOR_BGR2GRAY)
         binary_image = cv2.threshold(gray,0,255,cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
         ret,labels,stats,centroids  = cv2.connectedComponentsWithStatsWithAlgorithm(binary_image,connectivity=8,ltype=cv2.CV_32S,ccltype=cv2.CCL_GRANA)
-
+        
+        obstacle_coordinates = []
         for i in range(1,len(centroids)):
             self.get_logger().info("Obstacle id = " + str(i))
             current_obstacle = (labels==i)
             current_obstacle_num_cells = np.count_nonzero(current_obstacle)
             random_point = np.random.randint(current_obstacle_num_cells)
-            obstalcle_cells = np.nonzero(current_obstacle)
-            self.get_logger().info("Representative point = (" + str(obstalcle_cells[0][random_point]) + "," + str(obstalcle_cells[1][random_point])+")")
+            obstacle_cells = np.nonzero(current_obstacle)
+            obstacle_coordinates.append([obstacle_cells[0][random_point],obstacle_cells[1][random_point]])
+            #self.get_logger().info("Representative point = (" + str(obstalcle_cells[0][random_point]) + "," + str(obstalcle_cells[1][random_point])+")")
             #labels[obstalcle_cells[0][random_point]][obstalcle_cells[1][random_point]] = len(centroids)
-        self.imshow_components(labels)
+            
+
+        obstacles = np.array(obstacle_coordinates)
+        self.get_logger().info(str(obstacles))
         self.count = 1
         '''try:
             t  = self.tf_buffer.lookup_transform('map','robot_1/base_link',rclpy.time.Time())
