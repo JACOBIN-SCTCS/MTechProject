@@ -13,6 +13,9 @@ world_file_name = 'maze.world'
 
 def generate_launch_description():
     
+    remappings = [('/tf', 'tf'),
+                  ('/tf_static', 'tf_static')]
+
     use_sim_time = LaunchConfiguration('use_sim_time',default=True)
     declare_use_sim_time_argument = DeclareLaunchArgument(
         'use_sim_time',
@@ -47,7 +50,8 @@ def generate_launch_description():
             name = 'robot_state_publisher',
             namespace='robot_' + str(i+1),
             parameters=[{'frame_prefix': 'robot_'+str(i+1)+'/','use_sim_time':True, 'robot_description': Command(['xacro ', sdf_file_path,' robot_number:=',str(i+1)]) }],
-            output='screen'
+            output='screen',
+            remappings=remappings
         )
 
         for i in range(len(robot_coordinates))
@@ -60,7 +64,9 @@ def generate_launch_description():
             name='joint_state_publisher',
             namespace='robot_' + str(i+1),
             parameters=[{'frame_prefix': 'robot_'+str(i+1)+'/','use_sim_time':True, 'robot_description': Command(['xacro ', sdf_file_path,' robot_number:=',str(i+1)]) }],
-            output='screen'
+            output='screen',
+            remappings=remappings
+
         )
         for i in range(len(robot_coordinates))
     ]
