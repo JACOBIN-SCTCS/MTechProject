@@ -25,8 +25,8 @@ from nav2_common.launch import RewrittenYaml
 
 def generate_launch_description():
     # Get the launch directory
-    bringup_dir = get_package_share_directory('nav2_bringup')
-    package_dir = get_package_share_directory('robot_explorer')
+    package_name = 'robot_explorer'
+    package_dir = get_package_share_directory(package_name)
 
     namespace = LaunchConfiguration('namespace')
     use_sim_time = LaunchConfiguration('use_sim_time')
@@ -39,15 +39,8 @@ def generate_launch_description():
                        'bt_navigator',
                        'waypoint_follower']
 
-    # Map fully qualified names to relative ones so the node's namespace can be prepended.
-    # In case of the transforms (tf), currently, there doesn't seem to be a better alternative
-    # https://github.com/ros/geometry2/issues/32
-    # https://github.com/ros/robot_state_publisher/pull/30
-    # TODO(orduno) Substitute with `PushNodeRemapping`
-    #              https://github.com/ros2/launch_ros/issues/56
     remappings = [('/tf', 'tf'),
-                  ('/tf_static', 'tf_static'),
-                  ('/cmd_vel','/robot_1/cmd_vel')]
+                  ('/tf_static', 'tf_static')]
 
     # Create our own temporary YAML files that include substitutions
     param_substitutions = {
@@ -69,7 +62,7 @@ def generate_launch_description():
             description='Top-level namespace'),
 
         DeclareLaunchArgument(
-            'use_sim_time', default_value='true',
+            'use_sim_time', default_value='false',
             description='Use simulation (Gazebo) clock if true'),
 
         DeclareLaunchArgument(
@@ -85,6 +78,7 @@ def generate_launch_description():
             package='nav2_controller',
             executable='controller_server',
             output='screen',
+            namespace=namespace,
             parameters=[configured_params],
             remappings=remappings),
 
@@ -93,6 +87,7 @@ def generate_launch_description():
             executable='planner_server',
             name='planner_server',
             output='screen',
+            namespace=namespace,
             parameters=[configured_params],
             remappings=remappings),
 
@@ -101,6 +96,7 @@ def generate_launch_description():
             executable='recoveries_server',
             name='recoveries_server',
             output='screen',
+            namespace=namespace,
             parameters=[configured_params],
             remappings=remappings),
 
@@ -109,6 +105,7 @@ def generate_launch_description():
             executable='bt_navigator',
             name='bt_navigator',
             output='screen',
+            namespace=namespace,
             parameters=[configured_params],
             remappings=remappings),
 
@@ -117,6 +114,7 @@ def generate_launch_description():
             executable='waypoint_follower',
             name='waypoint_follower',
             output='screen',
+            namespace=namespace,
             parameters=[configured_params],
             remappings=remappings),
 
@@ -124,6 +122,7 @@ def generate_launch_description():
             package='nav2_lifecycle_manager',
             executable='lifecycle_manager',
             name='lifecycle_manager_navigation',
+            namespace=namespace,
             output='screen',
             parameters=[{'use_sim_time': use_sim_time},
                         {'autostart': autostart},
