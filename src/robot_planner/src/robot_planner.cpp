@@ -3,6 +3,8 @@
 #include "nav_msgs/msg/occupancy_grid.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
+#include "robot_planner/costmap_client.h"
+#include "tf2_ros/transform_listener.h"
 
 namespace robot_planner
 {
@@ -14,12 +16,15 @@ namespace robot_planner
       using GoalHandleNavigateToPose = rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateToPose>;
 
       RobotPlanner()
-      : Node("robot_planner")
+      : Node("robot_planner"),
+        _tf_buffer(this->get_clock()),
+        _costmap_client(*this, &_tf_buffer)
+
       {
         RCLCPP_INFO(this->get_logger(), "Robot Planner is running");
-        sub_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
+        /*sub_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
           "map", 10, std::bind(&RobotPlanner::map_callback, this, std::placeholders::_1));
-        
+        */
        
         action_client_ = rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(this, "navigate_to_pose");
         timer_ = this->create_wall_timer(
@@ -29,6 +34,7 @@ namespace robot_planner
       void timer_callback()
       {
           timer_->cancel();
+          return;
           RCLCPP_INFO(this->get_logger(), "Reached inside callback");
 
           if(!this->action_client_->wait_for_action_server())
@@ -67,6 +73,10 @@ namespace robot_planner
           msg->info.resolution);
 
       }
+    
+    protected:
+      tf2_ros::Buffer _tf_buffer;
+      Costmap2DClient _costmap_client;
     
     private:
       
