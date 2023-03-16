@@ -27,6 +27,7 @@ namespace robot_planner
         */
        
         action_client_ = rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(this, "navigate_to_pose");
+
         timer_ = this->create_wall_timer(
           std::chrono::milliseconds(500), std::bind(&RobotPlanner::timer_callback, this));
       }
@@ -34,7 +35,6 @@ namespace robot_planner
       void timer_callback()
       {
           timer_->cancel();
-          return;
           RCLCPP_INFO(this->get_logger(), "Reached inside callback");
 
           if(!this->action_client_->wait_for_action_server())
@@ -71,7 +71,7 @@ namespace robot_planner
           msg->info.width,
           msg->info.height,
           msg->info.resolution);
-
+        //_costmap_client.printRobotPose();
       }
     
     protected:
@@ -121,7 +121,6 @@ namespace robot_planner
             RCLCPP_ERROR(this->get_logger(), "Unknown result code");
             return;
         }
-        rclcpp::shutdown();
       }
 
   
