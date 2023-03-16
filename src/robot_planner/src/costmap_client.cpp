@@ -3,7 +3,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
 #include "nav2_costmap_2d/costmap_2d_ros.hpp"
-
+#include "map_msgs/msg/occupancy_grid_update.hpp"
 
 #include <functional>
 #include <mutex>
@@ -31,6 +31,11 @@ namespace robot_planner
             usleep(100000);
         }
 
+        costmap_update_sub_ = node_.create_subscription<map_msgs::msg::OccupancyGridUpdate>(
+            "/global_costmap/costmap_updates", rclcpp::SystemDefaultsQoS(),
+            std::bind(&Costmap2DClient::costmapUpdateCallback, this, std::placeholders::_1));  
+
+
         /*auto last_error = node_.now();
         std::string tf_error;
         while (rclcpp::ok() && !tf_->canTransform("map", "base_link",
@@ -54,6 +59,51 @@ namespace robot_planner
 
 
 
+    }
+
+    void Costmap2DClient::costmapUpdateCallback(const map_msgs::msg::OccupancyGridUpdate::SharedPtr msg)
+    {
+         
+        RCLCPP_INFO(node_.get_logger(),"Inside Update costmap");
+    
+        if (msg->x < 0 || msg->y < 0) {
+            RCLCPP_INFO(node_.get_logger(),
+                 "negative coordinates, invalid update. x: %d, y: %d", msg->x,
+                 msg->y);
+            return;
+        }
+
+        size_t x0 = static_cast<size_t>(msg->x);
+        size_t y0 = static_cast<size_t>(msg->y);
+        size_t xn = msg->width + x0;
+        size_t yn = msg->height + y0;
+
+  
+        auto* mutex = costmap_.getMutex();
+        std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(*mutex);
+        size_t costmap_xn = costmap_.getSizeInCellsX();
+        size_t costmap_yn = costmap_.getSizeInCellsY();
+
+        if (xn > costmap_xn || x0 > costmap_xn || yn > costmap_yn ||
+            y0 > costmap_yn) {
+            RCLCPP_INFO(node_.get_logger(),
+                "received update doesn't fully fit into existing map, "
+                "only part will be copied. received: [%lu, %lu], [%lu, %lu] "
+                "map is: [0, %lu], [0, %lu]",
+                x0, xn, y0, yn, costmap_xn, costmap_yn);
+            }
+
+  
+        unsigned char* costmap_data = costmap_.getCharMap();
+        size_t i = 0;
+        for (size_t y = y0; y < yn && y < costmap_yn; ++y) {
+           for (size_t x = x0; x < xn && x < costmap_xn; ++x) {
+                size_t idx = costmap_.getIndex(x, y);
+                unsigned char cell_cost = static_cast<unsigned char>(msg->data[i]);
+                costmap_data[idx] = cost_translation_table__[cell_cost];
+                ++i;
+            }
+        }
     }
 
     void Costmap2DClient::costmapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)

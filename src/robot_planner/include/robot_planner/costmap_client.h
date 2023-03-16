@@ -20,6 +20,7 @@ namespace robot_planner
 
         protected:
             void costmapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
+            void costmapUpdateCallback(const map_msgs::msg::OccupancyGridUpdate::SharedPtr msg);
            
             const tf2_ros::Buffer* const tf_; 
             rclcpp::Node& node_; 

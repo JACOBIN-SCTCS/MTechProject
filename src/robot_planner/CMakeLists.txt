@@ -14,13 +14,14 @@ find_package(rclcpp_action REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(nav2_costmap_2d REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(map_msgs REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
 add_executable(robot_planner src/robot_planner.cpp src/costmap_client.cpp src/obstacle_reps.cpp)
-ament_target_dependencies(robot_planner rclcpp nav_msgs nav2_msgs rclcpp_action tf2_ros nav2_costmap_2d tf2_geometry_msgs)
+ament_target_dependencies(robot_planner rclcpp nav_msgs nav2_msgs rclcpp_action tf2_ros nav2_costmap_2d tf2_geometry_msgs map_msgs)
 
 
 
