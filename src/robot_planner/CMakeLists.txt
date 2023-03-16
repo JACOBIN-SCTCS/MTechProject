@@ -29,6 +29,11 @@ target_include_directories(robot_planner PUBLIC
   $<INSTALL_INTERFACE:include>)
 target_compile_features(robot_planner PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
+install(DIRECTORY
+  launch
+  DESTINATION share/${PROJECT_NAME}/
+)
+
 install(TARGETS robot_planner
   DESTINATION lib/${PROJECT_NAME})
 

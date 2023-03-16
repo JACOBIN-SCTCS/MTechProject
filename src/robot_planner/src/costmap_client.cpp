@@ -31,11 +31,11 @@ namespace robot_planner
             usleep(100000);
         }
 
-        auto last_error = node_.now();
+        /*auto last_error = node_.now();
         std::string tf_error;
-        /*while (rclcpp::ok() && !tf_->canTransform("map", "base_link",
-                            NULL, NULL,
-                            NULL)) 
+        while (rclcpp::ok() && !tf_->canTransform("map", "base_link",
+                            tf2::TimePointZero, tf2::durationFromSec(0.1),
+                            &tf_error)) 
         {
             rclcpp::spin_some(node_.get_node_base_interface());
             if (last_error + tf2::durationFromSec(5.0) < node_.now()) {

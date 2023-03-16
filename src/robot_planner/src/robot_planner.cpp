@@ -18,6 +18,7 @@ namespace robot_planner
       RobotPlanner()
       : Node("robot_planner"),
         _tf_buffer(this->get_clock()),
+        tf_listener_(_tf_buffer),
         _costmap_client(*this, &_tf_buffer)
 
       {
@@ -35,6 +36,7 @@ namespace robot_planner
       void timer_callback()
       {
           timer_->cancel();
+          _costmap_client.printRobotPose();
           RCLCPP_INFO(this->get_logger(), "Reached inside callback");
 
           if(!this->action_client_->wait_for_action_server())
@@ -76,6 +78,7 @@ namespace robot_planner
     
     protected:
       tf2_ros::Buffer _tf_buffer;
+      tf2_ros::TransformListener tf_listener_;
       Costmap2DClient _costmap_client;
     
     private:
@@ -103,6 +106,8 @@ namespace robot_planner
         std::stringstream ss;
         ss << time_elapsed.sec << " seconds elapsed";
         RCLCPP_INFO(this->get_logger(),ss.str().c_str());
+        _costmap_client.printRobotPose();
+
       }
 
       void result_callback(const GoalHandleNavigateToPose::WrappedResult & result)
