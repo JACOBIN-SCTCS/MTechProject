@@ -1,6 +1,7 @@
 
 #include "nav2_costmap_2d/costmap_2d_ros.hpp"
 #include "geometry_msgs/msg/point.hpp"
+#include "geometry_msgs/msg/pose.hpp"
 
 namespace robot_planner
 {
@@ -9,6 +10,7 @@ namespace robot_planner
         int id;
         std::vector<unsigned int> rep;
         std::vector<std::vector<unsigned int>> points;
+        geometry_msgs::msg::Pose rep_world;
     };
 
     class ObstacleUtils

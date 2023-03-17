@@ -18,12 +18,15 @@ find_package(nav2_costmap_2d REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(map_msgs REQUIRED)
 find_package(Eigen3 REQUIRED NO_MODULE)
+find_package(visualization_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(builtin_interfaces REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
 add_executable(robot_planner src/robot_planner.cpp src/costmap_client.cpp src/obstacle_reps.cpp)
-ament_target_dependencies(robot_planner rclcpp nav_msgs nav2_msgs rclcpp_action tf2_ros nav2_costmap_2d tf2_geometry_msgs map_msgs)
+ament_target_dependencies(robot_planner rclcpp nav_msgs nav2_msgs rclcpp_action tf2_ros nav2_costmap_2d tf2_geometry_msgs map_msgs visualization_msgs std_msgs builtin_interfaces)
 target_link_libraries(robot_planner Eigen3::Eigen)
 
 

@@ -6,7 +6,8 @@
 #include "robot_planner/costmap_client.h"
 #include "tf2_ros/transform_listener.h"
 #include "robot_planner/obstacle_reps.h"
-
+#include "visualization_msgs/msg/marker_array.hpp"
+#include "builtin_interfaces/msg/duration.hpp"
 
 namespace robot_planner
 {
@@ -28,7 +29,7 @@ namespace robot_planner
         /*sub_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
           "map", 10, std::bind(&RobotPlanner::map_callback, this, std::placeholders::_1));
         */
-       
+        marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("obstacle_rep_markers", 10);
         action_client_ = rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(this, "navigate_to_pose");
 
         timer_ = this->create_wall_timer(
@@ -43,6 +44,34 @@ namespace robot_planner
           _costmap_client.printRobotPose();
           obstacle_utils.searchObstacles();
           std::vector<Obstacle> obstacles = obstacle_utils.getObstacles();
+
+          auto obstacle_marker_message = visualization_msgs::msg::MarkerArray();
+
+          for(long unsigned int i=0;i<obstacles.size();++i)
+          {
+            visualization_msgs::msg::Marker marker;
+            marker.header.frame_id = "map";
+            marker.header.stamp = this->now();
+            marker.ns = "";
+            marker.id = static_cast<int>(i);
+            marker.type = visualization_msgs::msg::Marker::CUBE;
+            marker.action = visualization_msgs::msg::Marker::ADD;
+            marker.pose = obstacles[i].rep_world;
+            marker.color.r = 0.0f;
+            marker.color.g = 1.0f;
+            marker.color.b = 0.0f;
+            marker.color.a = 1.0;
+            marker.scale.x = 0.1;
+            marker.scale.y = 0.1;
+            marker.scale.z = 0.1;
+
+            builtin_interfaces::msg::Duration lifetime;
+            lifetime.sec = 0;
+            marker.lifetime= lifetime;
+            obstacle_marker_message.markers.push_back(marker);
+          }
+
+          marker_pub_->publish(obstacle_marker_message);
           RCLCPP_INFO(this->get_logger(), "Number of obstacles: %lu", obstacles.size());
           RCLCPP_INFO(this->get_logger(), "Reached inside callback");
           return;
@@ -96,6 +125,7 @@ namespace robot_planner
      
       rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr sub_;
       rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr action_client_;
+      rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
       rclcpp::TimerBase::SharedPtr timer_;
      
 

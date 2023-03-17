@@ -1,5 +1,6 @@
 
 #include "robot_planner/obstacle_reps.h"
+#include "geometry_msgs/msg/pose.hpp"
 #include <mutex>
 
 namespace robot_planner
@@ -70,7 +71,7 @@ namespace robot_planner
 
         for(unsigned int i = 0; i < (x_size*y_size);++i)
         {
-            if(costmap_data[i]!=100)
+            if(costmap_data[i]<97)
             {
                 visited[i] = true;
                 continue;
@@ -95,7 +96,7 @@ namespace robot_planner
                 {
                     if(visited[neighbors[j]]==true)
                         continue;
-                    if(costmap_data[neighbors[j]]!=100)
+                    if(costmap_data[neighbors[j]]<97)
                     {
                         visited[neighbors[j]] = true;
                         continue;
@@ -108,8 +109,14 @@ namespace robot_planner
             }
             Obstacle obstacle;
             obstacle.id = obstacle_id++;
-            obstacle.rep = {0,0};
+            obstacle.rep = {points[0][0],points[0][1]};
             obstacle.points = points;
+            double reference_x,reference_y;
+            costmap_->mapToWorld(obstacle.rep[0],obstacle.rep[1],reference_x,reference_y);
+            obstacle.rep_world = geometry_msgs::msg::Pose();
+            obstacle.rep_world.position.x = reference_x;
+            obstacle.rep_world.position.y = reference_y;
+            obstacle.rep_world.orientation.w = 1.0;
             obstacles_.push_back(obstacle);
         
         }
