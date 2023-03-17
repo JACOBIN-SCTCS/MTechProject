@@ -5,6 +5,8 @@
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "robot_planner/costmap_client.h"
 #include "tf2_ros/transform_listener.h"
+#include "robot_planner/obstacle_reps.h"
+
 
 namespace robot_planner
 {
@@ -31,13 +33,19 @@ namespace robot_planner
 
         timer_ = this->create_wall_timer(
           std::chrono::milliseconds(500), std::bind(&RobotPlanner::timer_callback, this));
+
+        obstacle_utils = robot_planner::ObstacleUtils(_costmap_client.getCostmap());
       }
      
       void timer_callback()
       {
           timer_->cancel();
           _costmap_client.printRobotPose();
+          obstacle_utils.searchObstacles();
+          std::vector<Obstacle> obstacles = obstacle_utils.getObstacles();
+          RCLCPP_INFO(this->get_logger(), "Number of obstacles: %lu", obstacles.size());
           RCLCPP_INFO(this->get_logger(), "Reached inside callback");
+          return;
 
           if(!this->action_client_->wait_for_action_server())
           {
@@ -80,6 +88,8 @@ namespace robot_planner
       tf2_ros::Buffer _tf_buffer;
       tf2_ros::TransformListener tf_listener_;
       Costmap2DClient _costmap_client;
+      robot_planner::ObstacleUtils obstacle_utils;
+
     
     private:
       
@@ -87,6 +97,7 @@ namespace robot_planner
       rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr sub_;
       rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr action_client_;
       rclcpp::TimerBase::SharedPtr timer_;
+     
 
       void goal_response_callback(std::shared_future<GoalHandleNavigateToPose::SharedPtr> future)
       {

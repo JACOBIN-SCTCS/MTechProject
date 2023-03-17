@@ -176,9 +176,14 @@ namespace robot_planner
 
     }
 
-    nav2_costmap_2d::Costmap2D robot_planner::Costmap2DClient::getCostmap()
+    nav2_costmap_2d::Costmap2D* robot_planner::Costmap2DClient::getCostmap()
     {
-        return costmap_;
+        while(!costmap_received)
+        {
+            rclcpp::spin_some(node_.get_node_base_interface());
+            RCLCPP_INFO(node_.get_logger(), "Waiting for costmap for Obstacle Marking");
+        }
+        return &costmap_;
     }
 
     std::array<unsigned char, 256> init_translation_table()

@@ -15,7 +15,7 @@ namespace robot_planner
     {
         public:
             Costmap2DClient(rclcpp::Node& node, const tf2_ros::Buffer* tf_listener);
-            nav2_costmap_2d::Costmap2D getCostmap();
+            nav2_costmap_2d::Costmap2D* getCostmap();
             void printRobotPose() const;
 
         protected:
