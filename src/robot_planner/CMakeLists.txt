@@ -5,6 +5,8 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+set(CMAKE_PREFIX_PATH "/home/depressedcoder/eigen-3.4.0")
+
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -15,14 +17,14 @@ find_package(tf2_ros REQUIRED)
 find_package(nav2_costmap_2d REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(map_msgs REQUIRED)
-
+find_package(Eigen3 REQUIRED NO_MODULE)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
 add_executable(robot_planner src/robot_planner.cpp src/costmap_client.cpp src/obstacle_reps.cpp)
 ament_target_dependencies(robot_planner rclcpp nav_msgs nav2_msgs rclcpp_action tf2_ros nav2_costmap_2d tf2_geometry_msgs map_msgs)
-
+target_link_libraries(robot_planner Eigen3::Eigen)
 
 
 target_include_directories(robot_planner PUBLIC

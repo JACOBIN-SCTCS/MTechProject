@@ -10,6 +10,7 @@
 #include <string>
 #include <unistd.h>
 #include <exception>
+#include "Eigen/Dense"
 
 namespace robot_planner
 {
@@ -23,8 +24,13 @@ namespace robot_planner
         costmap_sub_ = node_.create_subscription<nav_msgs::msg::OccupancyGrid>(
             "global_costmap/costmap", rclcpp::SystemDefaultsQoS(),
             std::bind(&Costmap2DClient::costmapCallback, this, std::placeholders::_1));
-
-        RCLCPP_INFO(node_.get_logger(), "Waiting for the global costmap to arrive");
+        Eigen::MatrixXd m(2,2);
+        m(0,0) = 3;
+        m(1,0) = 2.5;
+        m(0,1) = -1;
+        m(1,1) = m(0,0) + m(0,1);
+        int ele = m.coeff(1,1);
+        RCLCPP_INFO(node_.get_logger(), "Waiting for the global costmap to arrive %d",ele);
         while(!costmap_received)
         {
             rclcpp::spin_some(node_.get_node_base_interface());
