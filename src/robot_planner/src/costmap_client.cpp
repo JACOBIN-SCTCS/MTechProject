@@ -1,4 +1,9 @@
 
+#if __INTELLISENSE__
+#undef __ARM_NEON
+#undef __ARM_NEON__
+#endif
+
 #include "robot_planner/costmap_client.h"
 #include "rclcpp/rclcpp.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
@@ -121,6 +126,7 @@ namespace robot_planner
         double origin_x = msg->info.origin.position.x;
         double origin_y = msg->info.origin.position.y;
 
+        RCLCPP_INFO(node_.get_logger(),"Costmap Width = %u Height = %u Resolution = %lf", num_cells_x,num_cells_y,resolution);
         costmap_.resizeMap(num_cells_x, num_cells_y, resolution, origin_x, origin_y);
         auto* mutex = costmap_.getMutex();
         std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(*mutex);
@@ -131,7 +137,7 @@ namespace robot_planner
         for (size_t i = 0; i < costmap_size && i < msg->data.size(); ++i) {
             unsigned char cell_cost = static_cast<unsigned char>(msg->data[i]);
             costmap_data[i] = cell_cost;
-            //costmap_data[i] = cost_translation_table__[cell_cost];
+            costmap_data[i] = cost_translation_table__[cell_cost];
         }
         /*RCLCPP_INFO(node_.get_logger(), "map updated, written %lu values",
                     costmap_size);*/

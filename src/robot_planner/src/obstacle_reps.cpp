@@ -69,44 +69,42 @@ namespace robot_planner
         std::vector<int16_t> obstacle_tag(x_size * y_size, -1);
         std::vector<bool> visited(x_size*y_size , false);
 
+
         for(unsigned int i = 0; i < (x_size*y_size);++i)
         {
-            if(costmap_data[i]<97)
+            if(visited[i]==true  || !(costmap_data[i]==253 || costmap_data[i]==254))
             {
-                visited[i] = true;
                 continue;
             }
-            if(visited[i]==true)
-                continue;
-            
-            std::queue<unsigned int> bfs_queue;
+            std::stack<unsigned int> stack;
             std::vector<std::vector<unsigned int>> points;
             unsigned int px,py ;
             costmap_->indexToCells(i,px,py);
             points.push_back({px,py});
-            bfs_queue.push(i);
-            visited[i] = true;
 
-            while(!bfs_queue.empty())
+            stack.push(i);
+            while(stack.size()> 0)
             {
-                unsigned int current_index = bfs_queue.front();
-                bfs_queue.pop();
-                std::vector<unsigned int> neighbors = getNeighbors(current_index);
-                for(unsigned int j = 0; j < neighbors.size(); ++j)
+                unsigned int current_node = stack.top();
+                stack.pop();
+                if(visited[current_node]==true)
+                    continue;
+                visited[current_node] = true;
+                std::vector<unsigned int> neighbours = getNeighbors(current_node);
+                for(unsigned int j =0 ; j <neighbours.size();++j)
                 {
-                    if(visited[neighbors[j]]==true)
-                        continue;
-                    if(costmap_data[neighbors[j]]<97)
+                    auto neighbour = neighbours[j];
+                    if (costmap_data[neighbour]==253 ||  costmap_data[neighbour]==254)
                     {
-                        visited[neighbors[j]] = true;
-                        continue;
+                        unsigned int px,py;
+                        costmap_->indexToCells(neighbour,px,py);
+                        points.push_back({px,py});
+                        stack.push(neighbour);
                     }
-                    bfs_queue.push(neighbors[j]);
-                    visited[neighbors[j]] = true;
-                    costmap_->indexToCells(neighbors[j],px,py);
-                    points.push_back({px,py});
+
                 }
             }
+            
             Obstacle obstacle;
             obstacle.id = obstacle_id++;
             obstacle.rep = {points[0][0],points[0][1]};
