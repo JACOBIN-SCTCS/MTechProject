@@ -13,46 +13,21 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     package_name = 'robot_world_package'
-
     package_dir = get_package_share_directory(package_name=package_name)
-    launch_dir = os.path.join(package_dir,'launch')
     
-    world_file_name = 'maze.world'
     robot_urdf = 'model.urdf'
-
     os.environ["GAZEBO_MODEL_PATH"] = os.path.join(package_dir,'models')
     urdf_file = os.path.join(package_dir,'models','my_robot',robot_urdf)
 
-
-
     # All Launch Configurations will be defined here
     namespace = LaunchConfiguration('namespace')
-    use_namespace = LaunchConfiguration('use_namespace')
     use_sim_time = LaunchConfiguration('use_sim_time')
-    use_simulator = LaunchConfiguration('use_simulator')
-    world = LaunchConfiguration('world')
+    x = LaunchConfiguration('x')
+    y = LaunchConfiguration('y')
+    z = LaunchConfiguration('z')
+    
+    
 
-    # pose = {
-    #     'x': LaunchConfiguration('x_pose', default=0.0),
-    #     'y': LaunchConfiguration('y_pose', default=0.5),
-    #     'z': LaunchConfiguration('z_pose', default=0.0),
-    #     'R': LaunchConfiguration('roll', default=0.0),
-    #     'P': LaunchConfiguration('pitch', default=0.0),
-    #     'Y': LaunchConfiguration('yaw', default=0.0)
-    # }
-    poses  = [{
-        'x' : 0.0,
-        'y' : 0.0,
-        'z' : 0.0,
-    },
-    {
-        'x' : -3.0,
-        'y' : 0.0,
-        'z' : 0.0,
-    },
-    
-    ]
-    
     # Remappings
     remappings = [ ('/tf','tf'),('/tf_static','tf_static') ]
 
@@ -64,28 +39,11 @@ def generate_launch_description():
         description='Top Level namespace'
     )
 
-    declare_use_namespace_cmd = DeclareLaunchArgument(
-        'use_namespace',
-        default_value='true',
-        description='Whether to apply a namespace to the node'
-    )
 
     declare_use_sim_time_cmd = DeclareLaunchArgument(
         'use_sim_time',
         default_value='true',
         description='Use simulation (Gazebo) clock if true'
-    )
-
-    declare_use_simulator_cmd = DeclareLaunchArgument(
-        'use_simulator',
-        default_value='true',
-        description='Whether to run the simulator'
-    )
-
-    declare_world_cmd = DeclareLaunchArgument(
-        'world',
-        default_value=os.path.join(package_dir, 'worlds', world_file_name),
-        description='Full path to world model file to load'
     )
 
     declare_robot_name_cmd = DeclareLaunchArgument(
@@ -94,20 +52,25 @@ def generate_launch_description():
         description='Name of the robot'
     )
 
-    # Specify the actions
-    start_gazebo_server_cmd = ExecuteProcess(
-        condition = IfCondition(use_simulator),
-        cmd = ['gzserver','-s','libgazebo_ros_init.so',
-               '-s','libgazebo_ros_factory.so',world
-               ],
-        cwd = [launch_dir],output='screen'
-    )    
+    declare_x_cmd = DeclareLaunchArgument(
+        'x',
+        default_value=str(0.0),
+        description='x coordinate of the robot'
+    )
 
-    start_gazebo_client_cmd = ExecuteProcess(
-        condition = IfCondition(use_simulator),
-        cmd = ['gzclient'],
-        cwd = [launch_dir],output='screen')
-    
+    declare_y_cmd = DeclareLaunchArgument(
+        'y',
+        default_value=str(0.0),
+        description='y coordinate of the robot'
+    )
+
+    declare_z_cmd = DeclareLaunchArgument(
+        'z',
+        default_value=str(0.0),
+        description='z coordinate of the robot'
+    )
+
+    # Specify the actions
 
     start_robot_state_publisher_cmd  = Node(
         package='robot_state_publisher',
@@ -124,7 +87,7 @@ def generate_launch_description():
 
     start_gazebo_spawner_cmd =  Node(
                             package=package_name, executable='spawn_robot',
-                            arguments=['WarehouseBot', str(poses[0]['x']), str(poses[0]['y']), str(poses[0]['z']),namespace],
+                            arguments=['TurtleBot', x, y, z,namespace],
                             output='screen')
                         
     
@@ -133,16 +96,14 @@ def generate_launch_description():
 
     # Declare the launch options
     ld.add_action(declare_namespace_cmd)
-    ld.add_action(declare_use_namespace_cmd)
     ld.add_action(declare_use_sim_time_cmd)
-    ld.add_action(declare_use_simulator_cmd)
-    ld.add_action(declare_world_cmd)
     ld.add_action(declare_robot_name_cmd)
+    ld.add_action(declare_x_cmd)
+    ld.add_action(declare_y_cmd)
+    ld.add_action(declare_z_cmd)
 
 
     # Add the actions to launch decsription
-    ld.add_action(start_gazebo_server_cmd)
-    ld.add_action(start_gazebo_client_cmd),
     ld.add_action(start_robot_state_publisher_cmd),
     ld.add_action(start_gazebo_spawner_cmd)
     return ld

@@ -10,12 +10,11 @@ import xacro
 def main():
     argv = sys.argv[1:]
     rclpy.init()
-    robot_number = int(sys.argv[2].split('_')[1])
     sdf_file_path = os.path.join(
         get_package_share_directory("robot_world_package"), "models",
         "my_robot", "model.urdf")
 
-    sdf_text = xacro.process_file(sdf_file_path,mappings={'robot_number':'robot_' + str(robot_number)})
+    sdf_text = xacro.process_file(sdf_file_path)
     xml = sdf_text.toxml()
 
     node = rclpy.create_node("entity_spawner")
@@ -29,12 +28,12 @@ def main():
     print(f"robot_sdf={sdf_file_path}")
     
     request = SpawnEntity.Request()
-    request.name = argv[0]
+    request.name = argv[4] if argv[4]!='' else argv[0]
     request.xml = xml
-    request.robot_namespace = argv[5]
-    request.initial_pose.position.x = float(argv[2])
-    request.initial_pose.position.y = float(argv[3])
-    request.initial_pose.position.z = float(argv[4])
+    request.robot_namespace = argv[4]
+    request.initial_pose.position.x = float(argv[1])
+    request.initial_pose.position.y = float(argv[2])
+    request.initial_pose.position.z = float(argv[3])
     future = client.call_async(request)
     
     
