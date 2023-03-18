@@ -7,6 +7,7 @@
 #include "tf2_ros/transform_listener.h"
 #include "robot_planner/obstacle_reps.h"
 #include "visualization_msgs/msg/marker_array.hpp"
+#include "visualization_msgs/msg/marker.hpp"
 #include "builtin_interfaces/msg/duration.hpp"
 
 namespace robot_planner
@@ -30,6 +31,7 @@ namespace robot_planner
           "map", 10, std::bind(&RobotPlanner::map_callback, this, std::placeholders::_1));
         */
         marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("obstacle_rep_markers", 10);
+        frontier_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("frontier_marker", 10);
         action_client_ = rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(this, "navigate_to_pose");
 
         timer_ = this->create_wall_timer(
@@ -74,11 +76,43 @@ namespace robot_planner
           marker_pub_->publish(obstacle_marker_message);
           RCLCPP_INFO(this->get_logger(), "Number of obstacles: %lu", obstacles.size());
           RCLCPP_INFO(this->get_logger(), "Reached inside callback");
+          unsigned int mx, my;
+          nav2_costmap_2d::Costmap2D* costmap = _costmap_client.getCostmap();
+          costmap->worldToMap(pose.pose.position.x, pose.pose.position.y, mx, my);
+
+          unsigned int index = costmap->getIndex(mx, my);
+                    
+          obstacle_utils.searchFrontiers(index);
+          Frontier frontier = obstacle_utils.getFrontier();
+          auto frontier_marker = visualization_msgs::msg::Marker();
+          frontier_marker.header.frame_id = "map";
+          frontier_marker.header.stamp = this->now();
+          frontier_marker.ns = "";
+          frontier_marker.id = 0;
+          frontier_marker.type = visualization_msgs::msg::Marker::SPHERE;
+          frontier_marker.action = visualization_msgs::msg::Marker::ADD;
           
+          costmap->indexToCells(frontier.frontier_point, mx, my);
+          double frontier_x , frontier_y;
+          costmap->mapToWorld(mx,my,frontier_x,frontier_y);
+          frontier_marker.pose.position.x = frontier_x;
+          frontier_marker.pose.position.y = frontier_y;
+          frontier_marker.pose.orientation.z = 1.0;
+          frontier_marker.color.r = 1.0f;
+          frontier_marker.color.g = 0.0f;
+          frontier_marker.color.b = 0.0f;
+          frontier_marker.color.a = 1.0;
+          frontier_marker.scale.x = 0.1;
+          frontier_marker.scale.y = 0.1;
+          frontier_marker.scale.z = 0.1;
+          builtin_interfaces::msg::Duration lifetime;
+          lifetime.sec = 0;
+          frontier_marker.lifetime= lifetime;
+          frontier_pub_->publish(frontier_marker);
+
           
-          
-          
-          //return;
+          RCLCPP_INFO(this->get_logger(), "Frontier point index = %u" , frontier.frontier_point);
+          return;
 
           if(!this->action_client_->wait_for_action_server())
           {
@@ -130,6 +164,7 @@ namespace robot_planner
       rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr sub_;
       rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr action_client_;
       rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
+      rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr frontier_pub_;
       rclcpp::TimerBase::SharedPtr timer_;
      
 

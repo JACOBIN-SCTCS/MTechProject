@@ -27,6 +27,7 @@ namespace robot_planner
             ObstacleUtils(nav2_costmap_2d::Costmap2D *costmap);
             void searchObstacles();
             void searchFrontiers(unsigned int index);
+            Frontier getFrontier();
             std::vector<unsigned int> getNeighbors(unsigned int index);
             std::vector<Obstacle> getObstacles();
             

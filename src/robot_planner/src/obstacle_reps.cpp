@@ -221,7 +221,11 @@ namespace robot_planner
         }
 
     }
-
+    Frontier ObstacleUtils::getFrontier()
+    {
+        return current_frontier;
+    }
+    
     std::vector<Obstacle> ObstacleUtils::getObstacles()
     {
         return obstacles_;
