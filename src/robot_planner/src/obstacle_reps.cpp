@@ -121,12 +121,14 @@ namespace robot_planner
 
     }
 
-    void ObstacleUtils::searchFrontiers(unsigned int index)
+    void ObstacleUtils::searchFrontiers(geometry_msgs::msg::PoseStamped pose)
     {
+
         std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(
         *(costmap_->getMutex()));
-        
-
+        unsigned int mx, my;
+        costmap_->worldToMap(pose.pose.position.x, pose.pose.position.y, mx, my);
+        unsigned int index = costmap_->getIndex(mx, my);     
         unsigned int x_size = costmap_ -> getSizeInCellsX();
         unsigned int y_size = costmap_ -> getSizeInCellsY();
         unsigned char* costmap_data = costmap_->getCharMap();

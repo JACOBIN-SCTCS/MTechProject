@@ -219,5 +219,16 @@ namespace robot_planner
 
         return cost_translation_table;
     }
+
+    robot_planner::WorldCoord robot_planner::Costmap2DClient::convert_index_to_world(unsigned int index) 
+    {
+        unsigned int mx, my;
+        auto* mutex = costmap_.getMutex();
+        std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(*mutex);
+        costmap_.indexToCells(index, mx, my);
+        double wx, wy;
+        costmap_.mapToWorld(mx, my, wx, wy);
+        return {wx, wy};
+    }
 }
 

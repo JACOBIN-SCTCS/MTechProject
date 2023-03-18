@@ -11,12 +11,25 @@
 
 namespace robot_planner
 {
+    struct MapCoord
+    {
+        unsigned int x;
+        unsigned int y;
+    };
+
+    struct WorldCoord
+    {
+        double x;
+        double y;
+    };
+
     class Costmap2DClient
     {
         public:
             Costmap2DClient(rclcpp::Node& node, const tf2_ros::Buffer* tf_listener);
             nav2_costmap_2d::Costmap2D* getCostmap();
             geometry_msgs::msg::PoseStamped getRobotPose() const;
+            WorldCoord convert_index_to_world(unsigned int index);
 
         protected:
             void costmapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
