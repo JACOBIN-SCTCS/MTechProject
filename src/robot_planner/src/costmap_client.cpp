@@ -144,7 +144,7 @@ namespace robot_planner
 
     }
 
-    void Costmap2DClient::printRobotPose() const
+    geometry_msgs::msg::PoseStamped Costmap2DClient::getRobotPose() const
     {
         geometry_msgs::msg::PoseStamped pose;
         pose.header.frame_id = "base_link";
@@ -175,11 +175,20 @@ namespace robot_planner
             RCLCPP_ERROR(node_.get_logger(), "Other error: %s\n",
                           ex.what());
         }
-
+        unsigned int mx , my;
+        if(!costmap_.worldToMap(pose.pose.position.x, pose.pose.position.y, mx, my))
+        {
+            RCLCPP_INFO(node_.get_logger(), "Robot pose is out of map bounds");
+        }
+        else
+        {
+            unsigned int index = costmap_.getIndex(mx, my);
+            RCLCPP_INFO(node_.get_logger(), "Robot pose in map: x=%u, y=%u , index=%u", mx, my,index);
+        }
         RCLCPP_INFO(node_.get_logger(), "Robot pose: x=%f, y=%f, theta=%f",
                     pose.pose.position.x, pose.pose.position.y,
                     tf2::getYaw(pose.pose.orientation));
-
+        return pose;
     }
 
     nav2_costmap_2d::Costmap2D* robot_planner::Costmap2DClient::getCostmap()

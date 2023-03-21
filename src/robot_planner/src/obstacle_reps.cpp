@@ -121,6 +121,107 @@ namespace robot_planner
 
     }
 
+    void ObstacleUtils::searchFrontiers(unsigned int index)
+    {
+        std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(
+        *(costmap_->getMutex()));
+        
+
+        unsigned int x_size = costmap_ -> getSizeInCellsX();
+        unsigned int y_size = costmap_ -> getSizeInCellsY();
+        unsigned char* costmap_data = costmap_->getCharMap();
+
+        std::vector<bool> visited(x_size*y_size , false);
+        std::vector<bool> frontier_tag(x_size * y_size, false);
+        std::queue<unsigned int> bfs_queue;        
+        
+        bfs_queue.push(index);
+        visited[index] = true;
+        bool first_frontier = false;
+
+        while(!bfs_queue.empty())
+        {
+            unsigned int front = bfs_queue.front();
+            bfs_queue.pop();
+            std::vector<unsigned int> neighbours = getNeighbors(front);
+            for(unsigned int i = 0; i < neighbours.size();++i)
+            {
+                unsigned int neighbour = neighbours[i];
+                if(visited[neighbour]==true || frontier_tag[neighbour]==true)
+                    continue;
+                
+                visited[neighbour] = true;
+                if(costmap_data[neighbour]==253 || costmap_data[neighbour]==254)
+                    continue;
+                if(costmap_data[neighbour]==255)
+                {
+                    std::vector<unsigned int> cell_neighbours = getNeighbors(neighbour);
+                    for(unsigned int j = 0; j < cell_neighbours.size();++j)
+                    {
+                        unsigned int cell_neighbour = cell_neighbours[j];
+                        if(costmap_data[cell_neighbour]<253)
+                        {
+                            frontier_tag[neighbour] = true;
+                            break;
+                        }
+                    }
+                    if(frontier_tag[neighbour]==true)
+                    {
+                        std::queue<unsigned int> frontier_queue;
+                        frontier_queue.push(neighbour);
+                        int size = 1;
+                        std::vector<unsigned int> unknown_cells;
+                        unknown_cells.push_back(neighbour);
+                        while(!frontier_queue.empty())
+                        {
+                            unsigned int frontier_front = frontier_queue.front();
+                            frontier_queue.pop();
+                            std::vector<unsigned int> frontier_neighbours = getNeighbors(frontier_front);
+                           
+                            for(unsigned int k = 0; k < frontier_neighbours.size();++k)
+                            {
+                               if(frontier_tag[frontier_neighbours[k]]==true)
+                                continue;
+                               if(costmap_data[frontier_neighbours[k]]==255)
+                                {
+                                    frontier_tag[frontier_neighbours[k]] = true;
+                                    unknown_cells.push_back(frontier_neighbours[k]);
+                                    frontier_queue.push(frontier_neighbours[k]);
+                                    size+=1;
+                                }
+                            }
+                            
+                        }
+                        Frontier f ;
+                        f.frontier_point = neighbour;
+                        f.size = size;
+                        f.unknown_cells = unknown_cells;
+                        if(first_frontier==false)
+                        {
+                            first_frontier = true;
+                            current_frontier = f;
+                        }
+                        else
+                        {
+                            if(f.size > current_frontier.size)
+                            {
+                                current_frontier = f;
+                                
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    bfs_queue.push(neighbour);
+                }
+
+            }
+          
+        }
+
+    }
+
     std::vector<Obstacle> ObstacleUtils::getObstacles()
     {
         return obstacles_;

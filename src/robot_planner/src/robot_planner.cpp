@@ -41,7 +41,7 @@ namespace robot_planner
       void timer_callback()
       {
           timer_->cancel();
-          _costmap_client.printRobotPose();
+           geometry_msgs::msg::PoseStamped pose = _costmap_client.getRobotPose();
           obstacle_utils.searchObstacles();
           std::vector<Obstacle> obstacles = obstacle_utils.getObstacles();
 
@@ -74,7 +74,11 @@ namespace robot_planner
           marker_pub_->publish(obstacle_marker_message);
           RCLCPP_INFO(this->get_logger(), "Number of obstacles: %lu", obstacles.size());
           RCLCPP_INFO(this->get_logger(), "Reached inside callback");
-          return;
+          
+          
+          
+          
+          //return;
 
           if(!this->action_client_->wait_for_action_server())
           {
@@ -147,7 +151,7 @@ namespace robot_planner
         std::stringstream ss;
         ss << time_elapsed.sec << " seconds elapsed";
         RCLCPP_INFO(this->get_logger(),ss.str().c_str());
-        _costmap_client.printRobotPose();
+        geometry_msgs::msg::PoseStamped pose = _costmap_client.getRobotPose();
 
       }
 
