@@ -30,6 +30,7 @@ namespace robot_planner
    
         marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("obstacle_rep_markers", 10);
         frontier_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("frontier_marker", 10);
+        paths_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("paths", 10);
         action_client_ = rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(this, "navigate_to_pose");
 
         timer_ = this->create_wall_timer(
@@ -54,7 +55,11 @@ namespace robot_planner
           RCLCPP_INFO(this->get_logger(), "Frontier point index = %u" , frontier.frontier_point);
           struct WorldCoord world_coord = _costmap_client.convert_index_to_world(frontier.frontier_point);
           visualize_frontier(world_coord.x,world_coord.y);
-         
+          std::vector<std::vector<geometry_msgs::msg::Point>> paths = path_utils.getPaths();
+          RCLCPP_INFO(this->get_logger(), "Number of paths: %lu", paths.size());
+          RCLCPP_INFO(this->get_logger(), "Number of points in first path: %lu", paths[0].size());
+          RCLCPP_INFO(this->get_logger(), "Number of points in second path: %lu", paths[1].size());
+          visualize_paths(paths);
           return;
 
 
@@ -117,6 +122,42 @@ namespace robot_planner
 
       }
 
+      void visualize_paths(std::vector<std::vector<geometry_msgs::msg::Point>> paths)
+      { 
+          auto paths_marker_message = visualization_msgs::msg::MarkerArray();
+          srand( (unsigned)time( NULL ) );
+          for(long unsigned int i=0;i<paths.size();++i)
+          {
+            visualization_msgs::msg::Marker marker;
+            marker.header.frame_id = "map";
+            marker.header.stamp = this->now();
+            marker.ns = "";
+            marker.id = static_cast<int>(i);
+            marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+            marker.action = visualization_msgs::msg::Marker::ADD;
+            for(long unsigned int j=0;j<paths[i].size();++j)
+            {
+              marker.points.push_back(paths[i][j]);
+            }
+            marker.color.r = (float) rand()/RAND_MAX;
+            marker.color.g = (float) rand()/RAND_MAX;
+            marker.color.b = (float) rand()/RAND_MAX;
+            marker.color.a = 1.0;
+            marker.scale.x = 0.05;
+            marker.scale.y = 0.05;
+            marker.scale.z = 0.05;
+
+            builtin_interfaces::msg::Duration lifetime;
+            lifetime.sec = 0;
+            marker.lifetime= lifetime;
+            paths_marker_message.markers.push_back(marker);
+          }
+
+          paths_pub_->publish(paths_marker_message);
+          RCLCPP_INFO(this->get_logger(), "Published paths");
+
+      }
+
       void visualize_frontier(double frontier_x,double frontier_y)
       {
           auto frontier_marker = visualization_msgs::msg::Marker();
@@ -154,6 +195,7 @@ namespace robot_planner
      
       rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr action_client_;
       rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
+      rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr paths_pub_;
       rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr frontier_pub_;
       rclcpp::TimerBase::SharedPtr timer_;
      

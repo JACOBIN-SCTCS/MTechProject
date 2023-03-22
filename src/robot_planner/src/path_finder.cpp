@@ -1,4 +1,9 @@
 
+#if __INTELLISENSE__
+#undef __ARM_NEON
+#undef __ARM_NEON__
+#endif
+
 #include "robot_planner/path_finder.h"
 #include "geometry_msgs/msg/pose.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
@@ -266,7 +271,7 @@ namespace robot_planner
         unsigned char* costmap_data = costmap_->getCharMap();
         unsigned int map_size_x = costmap_->getSizeInCellsX();
         unsigned int map_size_y = costmap_->getSizeInCellsY();
-        int count_limit  = 2;
+        int count_limit  = 4;
         int count =0;
 
 
@@ -303,7 +308,6 @@ namespace robot_planner
 	    Eigen::VectorXd zeros = Eigen::VectorXd::Zero(obstacle_points.size());
 	    ss << start_point << "-\n"<< zeros;
 	    distance_count[ss.str()] = std::abs(goal_point-start_point);
-	
 
 	    for(unsigned int i=0;i<directions.size();++i)
 	    {
@@ -338,18 +342,36 @@ namespace robot_planner
 
 
                     visited.insert(key);
-                    std::vector<std::complex<double>> path;
+                    std::vector<geometry_msgs::msg::Point> path;
                     DijkstraNode* temp = node;
+                     RCLCPP_INFO(rclcpp::get_logger("FrontierExploration"), "Before path logging");
                     while(temp!=NULL)
                     {
-                        path.push_back(temp->point);
+
+                        double current_point_x , current_point_y;
+                        try
+                        {
+                            costmap_->mapToWorld((unsigned int)temp->point.real(),(unsigned int)temp->point.imag(),current_point_x,current_point_y);
+                        }
+                        catch(const std::exception& e)
+                        {
+                            std::cerr << e.what() << '\n';
+                        }
+                        geometry_msgs::msg::Point current_point;
+                        current_point.x = current_point_x;
+                        current_point.y = current_point_y;
+                        RCLCPP_INFO(rclcpp::get_logger("FrontierExploration"), "Appending path code");
+
+                        path.push_back(current_point);
                         temp = temp->parent;
                     }
+                    RCLCPP_INFO(rclcpp::get_logger("FrontierExploration"), "Reversing code");
+
                     std::reverse(path.begin(),path.end());
-                    paths.push_back(path);
+                    paths_.push_back(path);
                     if(count>=count_limit)
                     {
-                        RCLCPP_INFO(rclcpp::get_logger("FrontierExploration"), "Path Size = %lu",paths[0].size());
+                        //RCLCPP_INFO(rclcpp::get_logger("FrontierExploration"), "Path Size = %lu",paths[0].size());
                         return;
                     }
                 }

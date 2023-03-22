@@ -34,7 +34,8 @@ namespace robot_planner
             std::vector<unsigned int> getNeighbors(unsigned int index);
             std::vector<Obstacle> getObstacles();
             void findPath(geometry_msgs::msg::PoseStamped pose);
-            
+            std::vector<std::vector<geometry_msgs::msg::Point>> paths_;
+            std::vector<std::vector<geometry_msgs::msg::Point>> getPaths(){return paths_;}
         protected:
             nav2_costmap_2d::Costmap2D* costmap_;
             std::vector<Obstacle> obstacles_;
