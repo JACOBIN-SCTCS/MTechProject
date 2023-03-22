@@ -52,7 +52,9 @@ namespace robot_planner
           RCLCPP_INFO(this->get_logger(), "Reached inside callback");
           auto frontier = path_utils.getFrontier();              
           RCLCPP_INFO(this->get_logger(), "Frontier point index = %u" , frontier.frontier_point);
-          
+          struct WorldCoord world_coord = _costmap_client.convert_index_to_world(frontier.frontier_point);
+          visualize_frontier(world_coord.x,world_coord.y);
+         
           return;
 
 
@@ -138,6 +140,8 @@ namespace robot_planner
           lifetime.sec = 0;
           frontier_marker.lifetime= lifetime;
           frontier_pub_->publish(frontier_marker);
+          RCLCPP_INFO(this->get_logger(), "Published to RVIZ");
+
       }
     
     protected:
