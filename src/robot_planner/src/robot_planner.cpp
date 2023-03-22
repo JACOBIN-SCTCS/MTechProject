@@ -27,9 +27,7 @@ namespace robot_planner
 
       {
         RCLCPP_INFO(this->get_logger(), "Robot Planner is running");
-        /*sub_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
-          "map", 10, std::bind(&RobotPlanner::map_callback, this, std::placeholders::_1));
-        */
+   
         marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("obstacle_rep_markers", 10);
         frontier_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("frontier_marker", 10);
         action_client_ = rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(this, "navigate_to_pose");
@@ -37,25 +35,26 @@ namespace robot_planner
         timer_ = this->create_wall_timer(
           std::chrono::milliseconds(500), std::bind(&RobotPlanner::timer_callback, this));
 
-        obstacle_utils = robot_planner::  Utils(_costmap_client.getCostmap());
+        path_utils = robot_planner::  Utils(_costmap_client.getCostmap());
       }
 
      
       void timer_callback()
       {
           timer_->cancel();
-          obstacle_utils.searchObstacles();
-          std::vector<Obstacle> obstacles = obstacle_utils.getObstacles();
+          geometry_msgs::msg::PoseStamped pose = _costmap_client.getRobotPose();
+          path_utils.findPath(pose);
+          
+          std::vector<Obstacle> obstacles = path_utils.getObstacles();
 
           visualize_obstacle_markers(obstacles);
           RCLCPP_INFO(this->get_logger(), "Number of obstacles: %lu", obstacles.size());
           RCLCPP_INFO(this->get_logger(), "Reached inside callback");
-          
-          findFrontiers();
-          auto frontier = obstacle_utils.getFrontier();              
+          auto frontier = path_utils.getFrontier();              
           RCLCPP_INFO(this->get_logger(), "Frontier point index = %u" , frontier.frontier_point);
           
           return;
+
 
           if(!this->action_client_->wait_for_action_server())
           {
@@ -83,19 +82,6 @@ namespace robot_planner
           RCLCPP_INFO(this->get_logger(), "Sending goal");
           action_client_->async_send_goal(goal_msg, send_goal_options);
       }
-
-      void findFrontiers()
-      {
-          geometry_msgs::msg::PoseStamped pose = _costmap_client.getRobotPose();
-               
-          obstacle_utils.searchFrontiers(pose);
-          Frontier frontier = obstacle_utils.getFrontier();
-          
-          struct WorldCoord world_coord = _costmap_client.convert_index_to_world(frontier.frontier_point);
-          visualize_frontier(world_coord.x,world_coord.y);
-
-      }
-
 
       void visualize_obstacle_markers(std::vector<Obstacle> obstacles)
       { 
@@ -153,28 +139,17 @@ namespace robot_planner
           frontier_marker.lifetime= lifetime;
           frontier_pub_->publish(frontier_marker);
       }
-
-      void map_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg) const
-      {
-      
-        RCLCPP_INFO(this->get_logger(), "Received a %d X %d map @ %.3f m/pix",
-          msg->info.width,
-          msg->info.height,
-          msg->info.resolution);
-        //_costmap_client.printRobotPose();
-      }
     
     protected:
       tf2_ros::Buffer _tf_buffer;
       tf2_ros::TransformListener tf_listener_;
       Costmap2DClient _costmap_client;
-      robot_planner::Utils obstacle_utils;
+      robot_planner::Utils path_utils;
 
     
     private:
       
      
-      rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr sub_;
       rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr action_client_;
       rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
       rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr frontier_pub_;

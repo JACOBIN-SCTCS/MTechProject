@@ -2,6 +2,8 @@
 #include "nav2_costmap_2d/costmap_2d_ros.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/point_stamped.hpp"
+
 
 namespace robot_planner
 {
@@ -30,6 +32,7 @@ namespace robot_planner
             Frontier getFrontier();
             std::vector<unsigned int> getNeighbors(unsigned int index);
             std::vector<Obstacle> getObstacles();
+            void findPath(geometry_msgs::msg::PoseStamped pose);
             
         protected:
             nav2_costmap_2d::Costmap2D* costmap_;
