@@ -334,17 +334,22 @@ namespace robot_planner
                 std::stringstream ss;
                 ss << node->h_signature;
                 std::string key = ss.str();
+                Eigen::VectorXd filtered = (1.0/(2*M_PIf64))*node->h_signature;
+			    if((filtered.array()> 1.0).any() || (filtered.array() < -1.0).any())
+				    continue;
+			
                 
                 if(visited.find(key) == visited.end())
                 {
                     //std::cout<<key<<std::endl<<std::endl;
                     count +=1;
+                    RCLCPP_INFO(rclcpp::get_logger("FrontierExploration"), "Path %d = %s",count,key.c_str());
 
 
                     visited.insert(key);
                     std::vector<geometry_msgs::msg::Point> path;
                     DijkstraNode* temp = node;
-                     RCLCPP_INFO(rclcpp::get_logger("FrontierExploration"), "Before path logging");
+                    RCLCPP_INFO(rclcpp::get_logger("FrontierExploration"), "Before path logging");
                     while(temp!=NULL)
                     {
 
@@ -360,12 +365,10 @@ namespace robot_planner
                         geometry_msgs::msg::Point current_point;
                         current_point.x = current_point_x;
                         current_point.y = current_point_y;
-                        RCLCPP_INFO(rclcpp::get_logger("FrontierExploration"), "Appending path code");
-
+                        RCLCPP_INFO(rclcpp::get_logger("FrontierExploration"),"(%lf,%lf)",current_point.x,current_point.y);
                         path.push_back(current_point);
                         temp = temp->parent;
                     }
-                    RCLCPP_INFO(rclcpp::get_logger("FrontierExploration"), "Reversing code");
 
                     std::reverse(path.begin(),path.end());
                     paths_.push_back(path);
