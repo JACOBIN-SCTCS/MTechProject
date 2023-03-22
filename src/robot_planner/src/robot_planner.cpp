@@ -5,7 +5,7 @@
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "robot_planner/costmap_client.h"
 #include "tf2_ros/transform_listener.h"
-#include "robot_planner/obstacle_reps.h"
+#include "robot_planner/path_finder.h"
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 #include "builtin_interfaces/msg/duration.hpp"
@@ -37,7 +37,7 @@ namespace robot_planner
         timer_ = this->create_wall_timer(
           std::chrono::milliseconds(500), std::bind(&RobotPlanner::timer_callback, this));
 
-        obstacle_utils = robot_planner::ObstacleUtils(_costmap_client.getCostmap());
+        obstacle_utils = robot_planner::  Utils(_costmap_client.getCostmap());
       }
 
      
@@ -168,7 +168,7 @@ namespace robot_planner
       tf2_ros::Buffer _tf_buffer;
       tf2_ros::TransformListener tf_listener_;
       Costmap2DClient _costmap_client;
-      robot_planner::ObstacleUtils obstacle_utils;
+      robot_planner::Utils obstacle_utils;
 
     
     private:

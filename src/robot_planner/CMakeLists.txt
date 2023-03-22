@@ -25,7 +25,7 @@ find_package(builtin_interfaces REQUIRED)
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
-add_executable(robot_planner src/robot_planner.cpp src/costmap_client.cpp src/obstacle_reps.cpp)
+add_executable(robot_planner src/robot_planner.cpp src/costmap_client.cpp src/path_finder.cpp)
 ament_target_dependencies(robot_planner rclcpp nav_msgs nav2_msgs rclcpp_action tf2_ros nav2_costmap_2d tf2_geometry_msgs map_msgs visualization_msgs std_msgs builtin_interfaces)
 target_link_libraries(robot_planner Eigen3::Eigen)
 

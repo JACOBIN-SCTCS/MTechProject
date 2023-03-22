@@ -1,22 +1,22 @@
 
-#include "robot_planner/obstacle_reps.h"
+#include "robot_planner/path_finder.h"
 #include "geometry_msgs/msg/pose.hpp"
 #include <mutex>
 
 namespace robot_planner
 {
-    ObstacleUtils::ObstacleUtils()
+    Utils::Utils()
     {
         ;
     }
 
-    ObstacleUtils::ObstacleUtils(nav2_costmap_2d::Costmap2D* costmap):
+    Utils::Utils(nav2_costmap_2d::Costmap2D* costmap):
         costmap_(costmap)
     {
         ;
     }
 
-    std::vector<unsigned int> ObstacleUtils::getNeighbors(unsigned int index)
+    std::vector<unsigned int> Utils::getNeighbors(unsigned int index)
     {
         std::vector<unsigned int> neighbors;
         unsigned int x_size = costmap_ -> getSizeInCellsX();
@@ -55,7 +55,7 @@ namespace robot_planner
         return neighbors;
     }
 
-    void ObstacleUtils::searchObstacles()
+    void Utils::searchObstacles()
     {
         std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(
         *(costmap_->getMutex()));
@@ -121,7 +121,7 @@ namespace robot_planner
 
     }
 
-    void ObstacleUtils::searchFrontiers(geometry_msgs::msg::PoseStamped pose)
+    void Utils::searchFrontiers(geometry_msgs::msg::PoseStamped pose)
     {
 
         std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(
@@ -223,12 +223,12 @@ namespace robot_planner
         }
 
     }
-    Frontier ObstacleUtils::getFrontier()
+    Frontier Utils::getFrontier()
     {
         return current_frontier;
     }
     
-    std::vector<Obstacle> ObstacleUtils::getObstacles()
+    std::vector<Obstacle> Utils::getObstacles()
     {
         return obstacles_;
     }

@@ -20,11 +20,11 @@ namespace robot_planner
         std::vector<unsigned int> unknown_cells;
     };
 
-    class ObstacleUtils
+    class Utils
     {   
         public:
-            ObstacleUtils();
-            ObstacleUtils(nav2_costmap_2d::Costmap2D *costmap);
+            Utils();
+            Utils(nav2_costmap_2d::Costmap2D *costmap);
             void searchObstacles();
             void searchFrontiers(geometry_msgs::msg::PoseStamped pose);
             Frontier getFrontier();
