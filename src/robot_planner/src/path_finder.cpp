@@ -266,7 +266,7 @@ namespace robot_planner
         unsigned char* costmap_data = costmap_->getCharMap();
         unsigned int map_size_x = costmap_->getSizeInCellsX();
         unsigned int map_size_y = costmap_->getSizeInCellsY();
-        int count_limit  = 8;
+        int count_limit  = 2;
         int count =0;
 
 
@@ -305,7 +305,7 @@ namespace robot_planner
 	    distance_count[ss.str()] = std::abs(goal_point-start_point);
 	
 
-	    for(int i=0;i<directions.size();++i)
+	    for(unsigned int i=0;i<directions.size();++i)
 	    {
             std::complex<double> new_point = start_point + directions[i];
             unsigned int new_point_index = costmap_->getIndex((unsigned int)new_point.real(),(unsigned int)new_point.imag());
@@ -333,7 +333,7 @@ namespace robot_planner
                 
                 if(visited.find(key) == visited.end())
                 {
-                    std::cout<<key<<std::endl<<std::endl;
+                    //std::cout<<key<<std::endl<<std::endl;
                     count +=1;
 
 
@@ -348,12 +348,15 @@ namespace robot_planner
                     std::reverse(path.begin(),path.end());
                     paths.push_back(path);
                     if(count>=count_limit)
-                        return ;
+                    {
+                        RCLCPP_INFO(rclcpp::get_logger("FrontierExploration"), "Path Size = %lu",paths[0].size());
+                        return;
+                    }
                 }
             }
             else
             {
-                for(int i=0;i<directions.size();++i)
+                for(unsigned int i=0;i<directions.size();++i)
                 {
                     std::complex<double> new_point = node->point + directions[i];
                     unsigned int new_point_index = costmap_->getIndex((unsigned int)new_point.real(),(unsigned int)new_point.imag());
