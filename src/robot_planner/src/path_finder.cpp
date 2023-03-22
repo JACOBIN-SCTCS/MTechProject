@@ -3,6 +3,13 @@
 #include "geometry_msgs/msg/pose.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
 #include <mutex>
+#include <complex>
+#include <Eigen/Dense>
+#include <ctime>
+#include <vector>
+#include <queue>
+#include <unordered_map>
+#include <set>
 
 namespace robot_planner
 {
@@ -66,8 +73,6 @@ namespace robot_planner
 
     void Utils::searchObstacles()
     {
-        std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(
-            *(costmap_->getMutex()));
         obstacles_.clear();
         unsigned int obstacle_id = 1;
 
@@ -129,8 +134,7 @@ namespace robot_planner
     void Utils::searchFrontiers(geometry_msgs::msg::PoseStamped pose)
     {
 
-        std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(
-            *(costmap_->getMutex()));
+       
         unsigned int mx, my;
         costmap_->worldToMap(pose.pose.position.x, pose.pose.position.y, mx, my);
         unsigned int index = costmap_->getIndex(mx, my);
@@ -200,6 +204,8 @@ namespace robot_planner
                         }
                         Frontier f;
                         f.frontier_point = neighbour;
+                        costmap_->indexToCells(neighbour, mx, my);
+                        f.map_coord = {mx, my};
                         f.size = size;
                         f.unknown_cells = unknown_cells;
                         if (first_frontier == false)
@@ -224,15 +230,156 @@ namespace robot_planner
         }
     }
 
+    auto customOp = [](const std::complex<double>& a, const std::complex<double>& b) -> double
+    {
+		double minimum_phase_difference = std::arg(b) - std::arg(a);
+		for(int i=-2;i<3;++i)
+		{
+			for(int j = -2; j<3;++j)
+			{
+				double phase_difference =  (std::arg(b) +2*M_PIf64*i) - (std::arg(a) + 2*M_PIf64*j);
+				if(std::abs(phase_difference) < std::abs(minimum_phase_difference))
+				{
+					minimum_phase_difference = phase_difference;
+				}  
+			}
+		}
+		return minimum_phase_difference;
+
+    };
+
+    struct DijkstraNode
+    {
+        std::complex<double> point;
+        Eigen::VectorXd h_signature;
+        double cost;
+        struct DijkstraNode* parent; 
+        std::vector<std::complex<double>> edge;
+
+        DijkstraNode( std::complex<double> p , Eigen::VectorXd h , double c , struct DijkstraNode* pa ,std::vector<std::complex<double>> e) : point(p) , h_signature(h),cost(c),parent(pa) , edge(e) {}
+    };
+
     void Utils::findPath(geometry_msgs::msg::PoseStamped pose)
     {
-        // std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(
-        //     *(costmap_->getMutex()));
+        std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(
+            *(costmap_->getMutex()));
+        unsigned char* costmap_data = costmap_->getCharMap();
+        unsigned int map_size_x = costmap_->getSizeInCellsX();
+        unsigned int map_size_y = costmap_->getSizeInCellsY();
+        int count_limit  = 8;
+        int count =0;
+
+
         unsigned int mx, my;
         costmap_->worldToMap(pose.pose.position.x, pose.pose.position.y, mx, my);
         searchObstacles();
         searchFrontiers(pose);
-        
+
+        Eigen::VectorXcd obstacle_points = Eigen::VectorXcd::Zero(obstacles_.size());
+        for(unsigned int i= 0 ; i < obstacles_.size();++i)
+            obstacle_points(i) = std::complex<double>(obstacles_[i].rep[0],obstacles_[i].rep[1]);
+        std::complex<double> start_point(mx,my);
+        std::complex<double> goal_point(current_frontier.map_coord[0],current_frontier.map_coord[1]);
+        RCLCPP_INFO(rclcpp::get_logger("FrontierExploration"), "Start point : %f %f",start_point.real(),start_point.imag());
+        RCLCPP_INFO(rclcpp::get_logger("FrontierExploration"), "Goal point : %f %f",goal_point.real(),goal_point.imag());
+
+        std::vector<std::complex<double>> directions = {
+            std::complex<double>(1.0,0.0),
+            std::complex<double>(0.0,1.0),
+            std::complex<double>(-1.0,0.0),
+            std::complex<double>(0.0,-1.0),
+            std::complex<double>(1.0,1.0),
+            std::complex<double>(-1.0,1.0),
+            std::complex<double>(1.0,-1.0),
+            std::complex<double>(-1.0,-1.0),
+        };
+
+	    std::vector<std::vector<std::complex<double>>> paths;	
+	    std::priority_queue<DijkstraNode*, std::vector<DijkstraNode*>, std::function<bool(DijkstraNode*, DijkstraNode*)>> pq([](DijkstraNode* a, DijkstraNode* b) { return a->cost > b->cost; });
+	    std::unordered_map<std::string,double> distance_count;
+	    std::set<std::string> visited;
+
+	    std::stringstream ss;
+	    Eigen::VectorXd zeros = Eigen::VectorXd::Zero(obstacle_points.size());
+	    ss << start_point << "-\n"<< zeros;
+	    distance_count[ss.str()] = std::abs(goal_point-start_point);
+	
+
+	    for(int i=0;i<directions.size();++i)
+	    {
+            std::complex<double> new_point = start_point + directions[i];
+            unsigned int new_point_index = costmap_->getIndex((unsigned int)new_point.real(),(unsigned int)new_point.imag());
+
+            if(real(new_point)<0.0 || real(new_point)>map_size_x || imag(new_point)<0.0 || imag(new_point)>map_size_y || (costmap_data[new_point_index] == 254 || costmap_data[new_point_index] == 253))
+                        continue;
+            Eigen::VectorXcd s_vec = Eigen::VectorXcd::Constant(obstacle_points.size(),start_point) - obstacle_points;
+            Eigen::VectorXcd e_vec = Eigen::VectorXcd::Constant(obstacle_points.size(),new_point) - obstacle_points;
+            Eigen::VectorXd temp = s_vec.array().binaryExpr(e_vec.array(),customOp);
+            double c = 1 + std::abs(new_point-goal_point);
+            std::vector<std::complex<double>> e = {start_point,new_point};
+            DijkstraNode* node = new DijkstraNode(new_point,temp,c,NULL,e);
+            pq.push(node);
+	    }
+	
+        while(!pq.empty())
+        {
+            DijkstraNode* node = pq.top();
+            pq.pop();
+            if(node->point == goal_point)
+            {
+                std::stringstream ss;
+                ss << node->h_signature;
+                std::string key = ss.str();
+                
+                if(visited.find(key) == visited.end())
+                {
+                    std::cout<<key<<std::endl<<std::endl;
+                    count +=1;
+
+
+                    visited.insert(key);
+                    std::vector<std::complex<double>> path;
+                    DijkstraNode* temp = node;
+                    while(temp!=NULL)
+                    {
+                        path.push_back(temp->point);
+                        temp = temp->parent;
+                    }
+                    std::reverse(path.begin(),path.end());
+                    paths.push_back(path);
+                    if(count>=count_limit)
+                        return ;
+                }
+            }
+            else
+            {
+                for(int i=0;i<directions.size();++i)
+                {
+                    std::complex<double> new_point = node->point + directions[i];
+                    unsigned int new_point_index = costmap_->getIndex((unsigned int)new_point.real(),(unsigned int)new_point.imag());
+                    if(real(new_point)<0.0 || real(new_point)> map_size_x || imag(new_point)<0.0 || imag(new_point)>map_size_y || (costmap_data[new_point_index] == 254 || costmap_data[new_point_index] == 253))
+                        continue;
+                    Eigen::VectorXcd s_vec = Eigen::VectorXcd::Constant(obstacle_points.size(),node->point) - obstacle_points;
+                    Eigen::VectorXcd e_vec = Eigen::VectorXcd::Constant(obstacle_points.size(),new_point) - obstacle_points;
+                    Eigen::VectorXd t =   s_vec.array().binaryExpr(e_vec.array(),customOp);
+                    Eigen::VectorXd temp =  node->h_signature + t;
+                    double c = node->cost + 1 + std::abs(new_point-goal_point);
+                    
+                    std::stringstream ss;
+                    ss << new_point << "-\n"<< temp;
+                    std::string key = ss.str();
+                    if(distance_count.find(key)==distance_count.end() || distance_count[key] > c)
+                    {
+                        distance_count[key] = c;
+                        std::vector<std::complex<double>> edge = { node->point,new_point}; 
+                        DijkstraNode* new_node = new DijkstraNode(new_point,temp,c,node,edge);
+                        pq.push(new_node);
+                    }
+                }
+            }
+
+	    }
+
     }
     Frontier Utils::getFrontier()
     {
@@ -243,5 +390,6 @@ namespace robot_planner
     {
         return obstacles_;
     }
+    
 
 }

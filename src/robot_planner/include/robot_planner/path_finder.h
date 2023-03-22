@@ -18,6 +18,7 @@ namespace robot_planner
     struct Frontier
     {
         unsigned int frontier_point;
+        std::vector<unsigned int> map_coord;
         unsigned int size;
         std::vector<unsigned int> unknown_cells;
     };
