@@ -140,8 +140,6 @@ namespace robot_planner
           lifetime.sec = 0;
           frontier_marker.lifetime= lifetime;
           frontier_pub_->publish(frontier_marker);
-          RCLCPP_INFO(this->get_logger(), "Published to RVIZ");
-
       }
     
     protected:
