@@ -271,7 +271,7 @@ namespace robot_planner
         unsigned char* costmap_data = costmap_->getCharMap();
         unsigned int map_size_x = costmap_->getSizeInCellsX();
         unsigned int map_size_y = costmap_->getSizeInCellsY();
-        int count_limit  = 4;
+        int count_limit  = 5;
         int count =0;
 
 
@@ -314,12 +314,15 @@ namespace robot_planner
             std::complex<double> new_point = start_point + directions[i];
             unsigned int new_point_index = costmap_->getIndex((unsigned int)new_point.real(),(unsigned int)new_point.imag());
 
-            if(real(new_point)<0.0 || real(new_point)>map_size_x || imag(new_point)<0.0 || imag(new_point)>map_size_y || (costmap_data[new_point_index] == 254 || costmap_data[new_point_index] == 253))
+            if(real(new_point)<0.0 || real(new_point)>map_size_x || imag(new_point)<0.0 || imag(new_point)>map_size_y || (costmap_data[new_point_index] == nav2_costmap_2d::LETHAL_OBSTACLE || costmap_data[new_point_index] == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE))
                         continue;
             Eigen::VectorXcd s_vec = Eigen::VectorXcd::Constant(obstacle_points.size(),start_point) - obstacle_points;
             Eigen::VectorXcd e_vec = Eigen::VectorXcd::Constant(obstacle_points.size(),new_point) - obstacle_points;
             Eigen::VectorXd temp = s_vec.array().binaryExpr(e_vec.array(),customOp);
-            double c = 1 + std::abs(new_point-goal_point);
+            double cell_cost = costmap_data[new_point_index];
+            if(cell_cost == nav2_costmap_2d::NO_INFORMATION)
+                cell_cost = 1.0;
+            double c = cell_cost + std::abs(new_point-goal_point);
             std::vector<std::complex<double>> e = {start_point,new_point};
             DijkstraNode* node = new DijkstraNode(new_point,temp,c,NULL,e);
             pq.push(node);
@@ -385,13 +388,19 @@ namespace robot_planner
                 {
                     std::complex<double> new_point = node->point + directions[i];
                     unsigned int new_point_index = costmap_->getIndex((unsigned int)new_point.real(),(unsigned int)new_point.imag());
-                    if(real(new_point)<0.0 || real(new_point)> map_size_x || imag(new_point)<0.0 || imag(new_point)>map_size_y || (costmap_data[new_point_index] == 254 || costmap_data[new_point_index] == 253))
+                    if(real(new_point)<0.0 || real(new_point)> map_size_x || imag(new_point)<0.0 || imag(new_point)>map_size_y || (costmap_data[new_point_index] == nav2_costmap_2d::LETHAL_OBSTACLE || costmap_data[new_point_index] == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE))
                         continue;
                     Eigen::VectorXcd s_vec = Eigen::VectorXcd::Constant(obstacle_points.size(),node->point) - obstacle_points;
                     Eigen::VectorXcd e_vec = Eigen::VectorXcd::Constant(obstacle_points.size(),new_point) - obstacle_points;
                     Eigen::VectorXd t =   s_vec.array().binaryExpr(e_vec.array(),customOp);
                     Eigen::VectorXd temp =  node->h_signature + t;
-                    double c = node->cost + 1 + std::abs(new_point-goal_point);
+                    Eigen::VectorXd filtered = (1.0/(2*M_PIf64))*temp;
+			        if((filtered.array()> 1.0).any() || (filtered.array() < -1.0).any())
+				        continue;
+			        double cell_cost = costmap_data[new_point_index];
+                    if(cell_cost == nav2_costmap_2d::NO_INFORMATION)
+                        cell_cost = 1.0;
+                    double c = node->cost + cell_cost + std::abs(new_point-goal_point);
                     
                     std::stringstream ss;
                     ss << new_point << "-\n"<< temp;
