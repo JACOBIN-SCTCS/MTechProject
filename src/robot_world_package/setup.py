@@ -15,6 +15,8 @@ setup(
 
         (os.path.join('share', package_name,'launch'), glob('launch/*.launch.py')),
         (os.path.join('share', package_name,'worlds/'), glob('./worlds/*')),
+        (os.path.join('share', package_name,'config/'), glob('./config/*')),
+
 
         # Path to the warehouse sdf file
         #(os.path.join('share', package_name,'models/my_robot1/'), glob('./models/my_robot1/*')),
