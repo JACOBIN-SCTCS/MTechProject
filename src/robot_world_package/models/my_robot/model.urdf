@@ -46,8 +46,8 @@
   <link name="base_footprint"/>
 
   <joint name="base_joint" type="fixed">
-    <parent link="base_footprint"/>
-    <child link="base_link"/>
+    <parent link="base_link"/>
+    <child link="base_footprint"/>
     <origin xyz="0.0 0.0 0.010" rpy="0 0 0"/>
   </joint>
 
@@ -302,7 +302,7 @@
       <publish_odom>true</publish_odom>
       <publish_odom_tf>true</publish_odom_tf>
       <publish_wheel_tf>true</publish_wheel_tf>
-      <robot_base_frame>base_footprint</robot_base_frame>
+      <robot_base_frame>base_link</robot_base_frame>
       <publish_tf>true</publish_tf>
       <publish_wheel_jointState>true</publish_wheel_jointState>
       <legacy_mode>false</legacy_mode>
