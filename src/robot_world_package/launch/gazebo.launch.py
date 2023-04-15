@@ -1,6 +1,3 @@
-
-
-
 import os
 from ament_index_python import get_package_share_directory
 from launch import LaunchDescription
@@ -127,7 +124,14 @@ def generate_launch_description():
                             arguments=['WarehouseBot', str(poses[0]['x']), str(poses[0]['y']), str(poses[0]['z']),namespace],
                             output='screen')
                         
-    
+    # robot_localization_node = Node(
+    #      package='robot_localization',
+    #      executable='ekf_node',
+    #      name='ekf_filter_node',
+    #      output='screen',
+    #      parameters=[os.path.join(package_dir, 'config/ekf.yaml'), {'use_sim_time': LaunchConfiguration('use_sim_time')}]
+    # )
+
     # Create the launch description and populate the necessary fields
     ld  = LaunchDescription()
 
@@ -142,14 +146,10 @@ def generate_launch_description():
 
     # Add the actions to launch decsription
     ld.add_action(start_gazebo_server_cmd)
-    ld.add_action(start_gazebo_client_cmd),
-    ld.add_action(start_robot_state_publisher_cmd),
+    ld.add_action(start_gazebo_client_cmd)
+    ld.add_action(start_robot_state_publisher_cmd)
     ld.add_action(start_gazebo_spawner_cmd)
+    # ld.add_action(robot_localization_node)
     return ld
     
-
-
-
-
-
     
