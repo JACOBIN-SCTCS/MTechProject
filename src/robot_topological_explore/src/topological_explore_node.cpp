@@ -3,6 +3,7 @@
 #include "std_msgs/msg/string.hpp"
 #include "behaviortree_cpp_v3/bt_factory.h"
 #include <ament_index_cpp/get_package_share_directory.hpp>
+#include "robot_topological_explore/costmap_client.h"
 
 
 using std::placeholders::_1;
@@ -35,7 +36,10 @@ public:
 class TopologicalExploreNode : public rclcpp::Node
 {
   public:
-    TopologicalExploreNode() : Node("topological_explorer")
+    TopologicalExploreNode() : Node("topological_explorer"),
+      _tf_buffer(this->get_clock()),
+      tf_listener_(_tf_buffer),
+     _costmap_client(*this, &_tf_buffer)
     {
       
     }
@@ -67,6 +71,9 @@ class TopologicalExploreNode : public rclcpp::Node
 
     BT::Tree tree;
     rclcpp::TimerBase::SharedPtr timer_;
+    tf2_ros::Buffer _tf_buffer;
+    tf2_ros::TransformListener tf_listener_;
+    robot_topological_explore::Costmap2DClient _costmap_client;
 
 };
 
