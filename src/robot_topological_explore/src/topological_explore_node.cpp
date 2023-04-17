@@ -11,6 +11,11 @@ using namespace std::chrono_literals;
 
 const std::string bt_dir = ament_index_cpp::get_package_share_directory("robot_topological_explore") + "/bt_xml";
 
+BT::NodeStatus CheckBattery(std::string message)
+{
+  std::cout << "[ Battery: OK ]" <<"---" << message<<std::endl;
+  return BT::NodeStatus::SUCCESS;
+}
 
 class ApproachObject : public BT::SyncActionNode
 {
@@ -48,6 +53,8 @@ class TopologicalExploreNode : public rclcpp::Node
       BT::BehaviorTreeFactory bt_factory;
       std::cout << bt_dir<<std::endl;
       bt_factory.registerNodeType<ApproachObject>("ApproachObject");
+      bt_factory.registerSimpleCondition("CheckBattery", std::bind(CheckBattery,"hello"));
+
       tree = bt_factory.createTreeFromFile(bt_dir+"/tree.xml");
 
     }
