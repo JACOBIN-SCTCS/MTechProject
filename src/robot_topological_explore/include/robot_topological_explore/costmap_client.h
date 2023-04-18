@@ -25,9 +25,11 @@ namespace robot_topological_explore
 
     struct Obstacle
     {
-        int obstacle_id;
-        
-
+        unsigned int obstacle_id;
+        std::vector<unsigned int> rep;
+        std::vector<unsigned int> obstacle_cells;
+        std::vector<std::vector<unsigned int>> obstacle_points;
+        geometry_msgs::msg::Pose obstacle_pose;
     };
 
 
@@ -38,16 +40,21 @@ namespace robot_topological_explore
             nav2_costmap_2d::Costmap2D* getCostmap();
             geometry_msgs::msg::PoseStamped getRobotPose() const;
             WorldCoord convert_index_to_world(unsigned int index);
+            void updateObstacles();
+            
+            std::vector<Obstacle> obstacles_;
+
 
         protected:
             void costmapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
             void costmapUpdateCallback(const map_msgs::msg::OccupancyGridUpdate::SharedPtr msg);
+            std::vector<unsigned int> getNeighbors(unsigned int index);
            
             const tf2_ros::Buffer* const tf_; 
             rclcpp::Node& node_; 
             nav2_costmap_2d::Costmap2D costmap_;
-
             bool costmap_received = false;
+
         private:
             rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_sub_;
             rclcpp::Subscription<map_msgs::msg::OccupancyGridUpdate>::SharedPtr costmap_update_sub_;

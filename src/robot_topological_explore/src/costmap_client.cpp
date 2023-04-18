@@ -198,5 +198,112 @@ namespace robot_topological_explore
         costmap_.mapToWorld(mx, my, wx, wy);
         return {wx, wy};
     }
+    std::vector<unsigned int> robot_topological_explore::Costmap2DClient::getNeighbors(unsigned int index)
+    {
+        std::vector<unsigned int> neighbors;
+        unsigned int x_size = costmap_.getSizeInCellsX();
+        unsigned int y_size = costmap_.getSizeInCellsY();
+        if (index > x_size * y_size - 1)
+        {
+            RCLCPP_INFO(rclcpp::get_logger("FrontierExploration"), "Evaluating nhood "
+                                                                   "for offmap point");
+            return neighbors;
+        }
+
+        if (index % x_size > 0)
+        {
+            neighbors.push_back(index - 1);
+        }
+        if (index % x_size < x_size - 1)
+        {
+            neighbors.push_back(index + 1);
+        }
+        if (index >= x_size)
+        {
+            neighbors.push_back(index - x_size);
+        }
+        if (index < x_size * (x_size - 1))
+        {
+            neighbors.push_back(index + x_size);
+        }
+        if (index % x_size > 0 && index >= x_size)
+        {
+            neighbors.push_back(index - 1 - x_size);
+        }
+        if (index % x_size > 0 && index < x_size * (y_size - 1))
+        {
+            neighbors.push_back(index - 1 + x_size);
+        }
+        if (index % x_size < x_size - 1 && index >= x_size)
+        {
+            neighbors.push_back(index + 1 - x_size);
+        }
+        if (index % x_size < x_size - 1 && index < x_size * (y_size - 1))
+        {
+            neighbors.push_back(index + 1 + x_size);
+        }
+
+        return neighbors;
+    }
+
+
+    void robot_topological_explore::Costmap2DClient::updateObstacles()
+    {
+        auto* mutex = costmap_.getMutex();
+        std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(*mutex);
+
+        obstacles_.clear();
+        unsigned int obstacle_id = 1;
+        unsigned char* costmap_data = costmap_.getCharMap();
+        unsigned int size_x = costmap_.getSizeInCellsX();
+        unsigned int size_y = costmap_.getSizeInCellsY();
+
+        std::vector<int16_t> obstacle_tag(size_x*size_y , -1);
+        std::vector<bool> visited(size_x*size_y, false);
+    
+
+       for(unsigned int i=0;i<(size_x * size_y);++i)
+        {
+            if(visited[i] == true || !(costmap_data[i]==253 || costmap_data[i]==254))
+                continue;
+            std::stack<unsigned int> stack;
+            std::vector<std::vector<unsigned int>> points;
+            unsigned int px,py;
+            costmap_.indexToCells(i, px, py);
+            points.push_back({px,py});
+            stack.push(i);
+            while(stack.size()>0)
+            {
+                unsigned int current_node = stack.top();
+                stack.pop();
+                if(visited[current_node] == true)
+                    continue;
+                visited[current_node] = true;
+                std::vector<unsigned int> neighbors = getNeighbors(current_node);
+                for(unsigned int j=0;j<neighbors.size();++j)
+                {
+                    if(costmap_data[neighbors[j]]==253 || costmap_data[neighbors[j]]==254)
+                    {
+                        stack.push(neighbors[j]);
+                        unsigned int px,py;
+                        costmap_.indexToCells(neighbors[j], px, py);
+                        points.push_back({px,py});
+                    }
+                }
+            }
+            Obstacle obs;
+            obs.obstacle_id = obstacle_id++;
+            obs.rep = {points[0][0],points[0][1]};
+            obs.obstacle_points = points;
+            double reference_x , reference_y ; 
+            costmap_.mapToWorld(obs.rep[0], obs.rep[1], reference_x, reference_y);
+            obs.obstacle_pose = geometry_msgs::msg::Pose();
+            obs.obstacle_pose.position.x = reference_x;
+            obs.obstacle_pose.position.y = reference_y;
+            obs.obstacle_pose.orientation.w = 1.0;
+            obstacles_.push_back(obs);
+        }
+      
+    }
 }
 

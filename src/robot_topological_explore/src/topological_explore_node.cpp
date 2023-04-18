@@ -1,9 +1,13 @@
 #include <memory>
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "behaviortree_cpp_v3/bt_factory.h"
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include "robot_topological_explore/costmap_client.h"
+#include "visualization_msgs/msg/marker_array.hpp"
+#include "visualization_msgs/msg/marker.hpp"
+
 
 
 using std::placeholders::_1;
@@ -20,7 +24,7 @@ BT::NodeStatus CheckBattery(std::string message)
 
 class ApproachObject : public BT::SyncActionNode
 {
-public:
+  public:
   ApproachObject(const std::string& name) :
       BT::SyncActionNode(name, {})
   {}
@@ -35,13 +39,15 @@ public:
 
 class TopologicalExploreNode : public rclcpp::Node
 {
-  public:
+  public: 
     TopologicalExploreNode() : Node("topological_explorer"),
       _tf_buffer(this->get_clock()),
       tf_listener_(_tf_buffer),
      _costmap_client(*this, &_tf_buffer)
     {
-      
+      _costmap_client.updateObstacles();
+      marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("obstacle_rep_markers", 10);
+      visualize_obstacle_markers(_costmap_client.obstacles_);
     }
 
     void setup()
@@ -66,7 +72,38 @@ class TopologicalExploreNode : public rclcpp::Node
     void updateBT()
     {
       tree.tickRoot();
-      // RCLCPP_INFO(this->get_logger(),"Reached here");
+      RCLCPP_INFO(this->get_logger(),"Reached here");
+    }
+    
+    void visualize_obstacle_markers(std::vector<robot_topological_explore::Obstacle> obstacles)
+    {
+      auto obstacle_marker_message = visualization_msgs::msg::MarkerArray();
+
+      for (long unsigned int i = 0; i < obstacles.size(); ++i)
+      {
+        visualization_msgs::msg::Marker marker;
+        marker.header.frame_id = "map";
+        marker.header.stamp = this->now();
+        marker.ns = "";
+        marker.id = static_cast<int>(i);
+        marker.type = visualization_msgs::msg::Marker::CUBE;
+        marker.action = visualization_msgs::msg::Marker::ADD;
+        marker.pose = obstacles[i].obstacle_pose;
+        marker.color.r = 0.0f;
+        marker.color.g = 1.0f;
+        marker.color.b = 0.0f;
+        marker.color.a = 1.0;
+        marker.scale.x = 0.1;
+        marker.scale.y = 0.1;
+        marker.scale.z = 0.1;
+
+        builtin_interfaces::msg::Duration lifetime;
+        lifetime.sec = 0;
+        marker.lifetime = lifetime;
+        obstacle_marker_message.markers.push_back(marker);
+      }
+
+      marker_pub_->publish(obstacle_marker_message);
     }
 
     BT::Tree tree;
@@ -74,7 +111,7 @@ class TopologicalExploreNode : public rclcpp::Node
     tf2_ros::Buffer _tf_buffer;
     tf2_ros::TransformListener tf_listener_;
     robot_topological_explore::Costmap2DClient _costmap_client;
-
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
 };
 
 int main(int argc, char * argv[])
