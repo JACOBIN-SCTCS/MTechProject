@@ -159,6 +159,16 @@ namespace robot_topological_explore
         return pose;
     }
 
+    robot_topological_explore::WorldCoord robot_topological_explore::Costmap2DClient::getGlobalGoalPose()
+    {
+        size_t costmap_size = costmap_.getSizeInCellsX() * costmap_.getSizeInCellsY();
+        unsigned int mx , my;
+        double wx , wy ;
+        costmap_.indexToCells(costmap_size-1, mx, my);
+        costmap_.mapToWorld(mx, my, wx, wy);
+        return {wx,wy};
+    }
+
     nav2_costmap_2d::Costmap2D* robot_topological_explore::Costmap2DClient::getCostmap()
     {
         while(!costmap_received)

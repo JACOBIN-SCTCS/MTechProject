@@ -39,6 +39,7 @@ namespace robot_topological_explore
             Costmap2DClient(rclcpp::Node& node, const tf2_ros::Buffer* tf_listener);
             nav2_costmap_2d::Costmap2D* getCostmap();
             geometry_msgs::msg::PoseStamped getRobotPose() const;
+            WorldCoord getGlobalGoalPose();
             WorldCoord convert_index_to_world(unsigned int index);
             void updateObstacles();
             
