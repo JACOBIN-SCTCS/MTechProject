@@ -46,7 +46,7 @@ namespace robot_topological_explore
             std::vector<Obstacle> obstacles_;
 
 
-        protected:
+        //protected:
             void costmapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
             void costmapUpdateCallback(const map_msgs::msg::OccupancyGridUpdate::SharedPtr msg);
             std::vector<unsigned int> getNeighbors(unsigned int index);

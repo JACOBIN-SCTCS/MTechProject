@@ -14,6 +14,24 @@
 
 namespace robot_topological_explore
 {
+    struct AstarNode
+    {
+        std::complex<double> point;
+        Eigen::VectorXd h_signature;
+        double f;
+        double g;
+        struct AstarNode* parent; 
+        std::vector<std::complex<double>> edge;
+
+        AstarNode(std::complex<double> p,
+        Eigen::VectorXd h,
+        double f,
+        double g,
+        struct AstarNode* pa,
+        std::vector<std::complex<double>> e) : point(p) , h_signature(h),f(f),g(g),parent(pa) , edge(e) {}
+  
+    };
+
     class Robot
     {
         public:
@@ -22,6 +40,7 @@ namespace robot_topological_explore
             void get_exploration_path();
             void goto_frontier();
             double get_absolute_distance(geometry_msgs::msg::Point pose1, geometry_msgs::msg::Point pose2);
+            void get_non_homologous_path(geometry_msgs::msg::Point current_pose,Eigen::VectorXcd obstacle_coords);
 
             rclcpp::Node& node_;
 
@@ -34,7 +53,8 @@ namespace robot_topological_explore
             geometry_msgs::msg::Point global_start_point;
             geometry_msgs::msg::Point global_goal_pose;
 
-            std::vector<geometry_msgs::msg::PoseStamped> current_path;
+            std::vector<geometry_msgs::msg::Point> current_path;
+            unsigned int current_path_index;
             Eigen::VectorXd partial_h_signature;
     
             robot_topological_explore::Costmap2DClient *_costmap_client;
