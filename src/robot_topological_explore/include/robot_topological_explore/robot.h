@@ -17,13 +17,15 @@ namespace robot_topological_explore
     class Robot
     {
         public:
-            Robot(robot_topological_explore::Costmap2DClient *costmap_client);
+            Robot(rclcpp::Node& node,robot_topological_explore::Costmap2DClient *costmap_client);
 
             void get_exploration_path();
             void goto_frontier();
-            double get_absolute_distance(geometry_msgs::msg::PoseStamped pose1, geometry_msgs::msg::PoseStamped pose2);
+            double get_absolute_distance(geometry_msgs::msg::Point pose1, geometry_msgs::msg::Point pose2);
 
-            std::vector<std::vector<geometry_msgs::msg::PoseStamped>> traversed_paths;
+            rclcpp::Node& node_;
+
+            std::vector<std::vector<geometry_msgs::msg::Point>> traversed_paths;
             std::vector<Eigen::VectorXd> traversed_h_signatures;
             
             geometry_msgs::msg::Point start_point;

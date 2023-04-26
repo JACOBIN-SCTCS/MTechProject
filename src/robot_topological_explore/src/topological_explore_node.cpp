@@ -21,7 +21,7 @@ public:
                              _tf_buffer(this->get_clock()),
                              tf_listener_(_tf_buffer),
                              costmap_client(*this, &_tf_buffer),
-                             robot(&costmap_client)
+                             robot(*this,&costmap_client)
   {
     costmap_client.updateObstacles();
     marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("obstacle_rep_markers", 10);
@@ -43,6 +43,7 @@ public:
         node_->costmap_client.updateObstacles();
         node_->visualize_obstacle_markers(node_->costmap_client.obstacles_);
         node_->visualize_positions({node_->robot.global_start_point, node_->robot.global_goal_pose});
+        node_->robot.get_exploration_path();
         return BT::NodeStatus::SUCCESS;
       }
 
