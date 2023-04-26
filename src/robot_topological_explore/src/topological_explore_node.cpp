@@ -4,9 +4,9 @@
 #include "std_msgs/msg/bool.hpp"
 #include "behaviortree_cpp_v3/bt_factory.h"
 #include <ament_index_cpp/get_package_share_directory.hpp>
-#include "robot_topological_explore/costmap_client.h"
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "visualization_msgs/msg/marker.hpp"
+#include "robot_topological_explore/robot.h"
 
 using std::placeholders::_1;
 using namespace std::chrono_literals;
@@ -20,11 +20,13 @@ public:
   TopologicalExploreNode() : Node("topological_explorer"),
                              _tf_buffer(this->get_clock()),
                              tf_listener_(_tf_buffer),
-                             _costmap_client(*this, &_tf_buffer)
+                             costmap_client(*this, &_tf_buffer),
+                             robot(&costmap_client)
   {
-    _costmap_client.updateObstacles();
+    costmap_client.updateObstacles();
     marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("obstacle_rep_markers", 10);
-    visualize_obstacle_markers(_costmap_client.obstacles_);
+    locations_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("locations",10);
+    visualize_obstacle_markers(costmap_client.obstacles_);
   }
   
   class ObstacleFinderBTNode : public BT::SyncActionNode
@@ -38,8 +40,9 @@ public:
       BT::NodeStatus tick() override
       {
         std::cout << "ObstacleFinderBTNode: " << this->name() << std::endl;
-        node_->_costmap_client.updateObstacles();
-        node_->visualize_obstacle_markers(node_->_costmap_client.obstacles_);
+        node_->costmap_client.updateObstacles();
+        node_->visualize_obstacle_markers(node_->costmap_client.obstacles_);
+        node_->visualize_positions({node_->robot.global_start_point, node_->robot.global_goal_pose});
         return BT::NodeStatus::SUCCESS;
       }
 
@@ -104,12 +107,44 @@ public:
     marker_pub_->publish(obstacle_marker_message);
   }
 
+  void visualize_positions(std::vector<geometry_msgs::msg::Point> positions)
+  {
+    auto locations_marker_message = visualization_msgs::msg::MarkerArray();
+    for (long unsigned int i = 0; i < positions.size(); ++i)
+    {
+      visualization_msgs::msg::Marker marker;
+      marker.header.frame_id = "map";
+      marker.header.stamp = this->now();
+      marker.ns = "";
+      marker.id = static_cast<int>(i);
+      marker.type = visualization_msgs::msg::Marker::CUBE;
+      marker.action = visualization_msgs::msg::Marker::ADD;
+      marker.pose.position.x = positions[i].x;
+      marker.pose.position.y = positions[i].y;
+      marker.color.r = 1.0f;
+      marker.color.g = 0.0f;
+      marker.color.b = 0.0f;
+      marker.color.a = 1.0;
+      marker.scale.x = 0.1;
+      marker.scale.y = 0.1;
+      marker.scale.z = 0.1;
+
+      builtin_interfaces::msg::Duration lifetime;
+      lifetime.sec = 0;
+      marker.lifetime = lifetime;
+      locations_marker_message.markers.push_back(marker);
+    }
+    locations_pub_->publish(locations_marker_message);
+  }
+
   BT::Tree tree;
   rclcpp::TimerBase::SharedPtr timer_;
   tf2_ros::Buffer _tf_buffer;
   tf2_ros::TransformListener tf_listener_;
-  robot_topological_explore::Costmap2DClient _costmap_client;
+  robot_topological_explore::Costmap2DClient costmap_client;
+  robot_topological_explore::Robot robot;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr locations_pub_;
 };
 
 int main(int argc, char *argv[])

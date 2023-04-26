@@ -9,8 +9,8 @@
 #include <vector>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
-#include "Eigen/Dense"
 #include "robot_topological_explore/costmap_client.h"
+#include "Eigen/Dense"
 
 namespace robot_topological_explore
 {
