@@ -45,8 +45,10 @@ namespace robot_topological_explore
 
     void Robot::get_non_homologous_path(geometry_msgs::msg::Point current_pose, Eigen::VectorXcd obstacle_coords)
     {
+        RCLCPP_INFO(node_.get_logger(), "Reached inside get_non_homologous path function");
+
         current_path.erase(current_path.begin()+current_path_index+1,current_path.end());
-        
+
         std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(
           *(_costmap_client->costmap_.getMutex()));
         unsigned char* costmap_data = _costmap_client->costmap_.getCharMap();
@@ -54,13 +56,17 @@ namespace robot_topological_explore
         unsigned int map_size_y = _costmap_client->costmap_.getSizeInCellsY();
         //int count_limit = 5;
         //int count = 0;
-      
+        RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : Map Size = %u x %u",map_size_x,map_size_y);
+
         unsigned int mx,my;
         unsigned int gx,gy;
         _costmap_client->costmap_.worldToMap(current_pose.x, current_pose.y, mx, my);
         _costmap_client->costmap_.worldToMap(goal_pose.x,goal_pose.y,gx,gy);
-        std::complex<double> start_point(mx,my);
-        std::complex<double> goal_point(gx,gy);
+        std::complex<double> s_point(mx,my);
+        std::complex<double> g_point(gx,gy);
+        
+        RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : start_point = ( %u , %u ) , goal_point = ( %u , %u)",mx,my,gx,gy);
+
         
         // searchObstacles();
         // searchFrontiers(pose);
@@ -82,8 +88,10 @@ namespace robot_topological_explore
         std::stringstream ss;
         ss << start_point << "-\n"<< partial_h_signature;
         distance_count[ss.str()] = std::abs(goal_point-start_point);
-        AstarNode* start_node = new AstarNode(start_point,partial_h_signature,0,std::abs(goal_point-start_point),NULL,{});
+        RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : distance value = %lf",distance_count[ss.str()]);
+        AstarNode* start_node = new AstarNode(s_point,partial_h_signature,0,std::abs(goal_point-start_point),NULL,{});
         pq.push(start_node);
+        RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : start_node pushed");
         while(!pq.empty())
         {
             AstarNode* node = pq.top();
@@ -137,7 +145,7 @@ namespace robot_topological_explore
                 for(unsigned int j=0;j<path.size();++j)
                     current_path.push_back(path[j]);
                 //current_path.push_back(path);
-                
+                return;    
             }
             else
             {
@@ -145,7 +153,7 @@ namespace robot_topological_explore
                 {
                     std::complex<double> new_point = node->point + directions[i];
                     unsigned int new_point_index = _costmap_client->costmap_.getIndex((unsigned int)new_point.real(),(unsigned int)new_point.imag());
-                    if(real(new_point)<0.0 || real(new_point)>= map_size_x || imag(new_point)<0.0 || imag(new_point)>=map_size_y || (costmap_data[new_point_index] == nav2_costmap_2d::LETHAL_OBSTACLE || costmap_data[new_point_index] == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE))
+                    if( ((unsigned int)real(new_point))<0 || ((unsigned int)real(new_point))>= map_size_x || ((unsigned int)imag(new_point))<0.0 || ((unsigned int)imag(new_point))>=map_size_y || (costmap_data[new_point_index] == nav2_costmap_2d::LETHAL_OBSTACLE || costmap_data[new_point_index] == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE))
                         continue;
                     Eigen::VectorXcd s_vec = Eigen::VectorXcd::Constant(obstacle_coords.size(),node->point) - obstacle_coords;
                     Eigen::VectorXcd e_vec = Eigen::VectorXcd::Constant(obstacle_coords.size(),new_point) - obstacle_coords;
@@ -189,9 +197,18 @@ namespace robot_topological_explore
             }
             else
             {
+                std::reverse(current_path.begin(),current_path.end());
                 goal_pose = global_goal_pose;
                 start_point = current_pose;
-            }
+            }   
+            std::vector<geometry_msgs::msg::Point> current_path_copy;
+            
+            for(long unsigned int i=0;i<current_path.size();++i)
+                current_path_copy.push_back(current_path[i]);
+               
+            current_path_index = 0;
+            traversed_paths.push_back(current_path_copy);
+            current_path.clear();
         }
 
         auto obstacles = _costmap_client->obstacles_;
@@ -216,6 +233,7 @@ namespace robot_topological_explore
             }
             traversed_h_signatures.push_back(h_signature);
         }
+        RCLCPP_INFO(node_.get_logger(), "Completed computing h signatures traversed");
         partial_h_signature = Eigen::VectorXd::Zero(obstacles.size());
         for(long unsigned int i = 0 ; i!=(current_path.size()-1) && i< current_path_index;++i)
         {
@@ -224,6 +242,8 @@ namespace robot_topological_explore
             Eigen::VectorXd temp = s_vec.array().binaryExpr(e_vec.array(),customOp);
             partial_h_signature += temp;
         }
+        RCLCPP_INFO(node_.get_logger(), "partial_h_signature: %f", partial_h_signature.norm());
+        get_non_homologous_path(current_pose,obstacle_points);
 
     }
 

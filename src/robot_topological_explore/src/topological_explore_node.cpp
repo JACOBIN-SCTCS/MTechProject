@@ -26,6 +26,7 @@ public:
     costmap_client.updateObstacles();
     marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("obstacle_rep_markers", 10);
     locations_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("locations",10);
+    paths_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("sample_path",10);
     visualize_obstacle_markers(costmap_client.obstacles_);
   }
   
@@ -44,6 +45,7 @@ public:
         node_->visualize_obstacle_markers(node_->costmap_client.obstacles_);
         node_->visualize_positions({node_->robot.global_start_point, node_->robot.global_goal_pose});
         node_->robot.get_exploration_path();
+        node_->visualize_path(node_->robot.current_path);
         return BT::NodeStatus::SUCCESS;
       }
 
@@ -138,6 +140,36 @@ public:
     locations_pub_->publish(locations_marker_message);
   }
 
+  void visualize_path(std::vector<geometry_msgs::msg::Point> path)
+  {
+      auto path_marker_message = visualization_msgs::msg::Marker();
+      path_marker_message.header.frame_id = "map";
+      path_marker_message.header.stamp = this->now();
+      path_marker_message.ns = "";
+      path_marker_message.id = static_cast<int>(0);
+      path_marker_message.type = visualization_msgs::msg::Marker::LINE_STRIP;
+      path_marker_message.action = visualization_msgs::msg::Marker::ADD;
+      
+      for(long unsigned int i = 0; i < path.size(); ++i)
+      {
+     
+        path_marker_message.points.push_back(path[i]);
+        
+      }
+
+      path_marker_message.color.r = 1.0f;
+      path_marker_message.color.g = 0.0f;
+      path_marker_message.color.b = 0.0f;
+      path_marker_message.color.a = 1.0;
+      path_marker_message.scale.x = 0.1;
+      path_marker_message.scale.y = 0.1;
+      path_marker_message.scale.z = 0.1;
+      builtin_interfaces::msg::Duration lifetime;
+      lifetime.sec = 0;
+      path_marker_message.lifetime = lifetime;
+      paths_pub_->publish(path_marker_message);
+  }
+
   BT::Tree tree;
   rclcpp::TimerBase::SharedPtr timer_;
   tf2_ros::Buffer _tf_buffer;
@@ -146,6 +178,7 @@ public:
   robot_topological_explore::Robot robot;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr locations_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr paths_pub_;
 };
 
 int main(int argc, char *argv[])
