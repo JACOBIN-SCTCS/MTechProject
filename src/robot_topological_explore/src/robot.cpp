@@ -47,7 +47,7 @@ namespace robot_topological_explore
     {
         RCLCPP_INFO(node_.get_logger(), "Reached inside get_non_homologous path function");
 
-        current_path.erase(current_path.begin()+current_path_index+1,current_path.end());
+        current_path.erase(current_path.begin()+current_path_index,current_path.end());
 
         std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(
           *(_costmap_client->costmap_.getMutex()));
@@ -86,27 +86,33 @@ namespace robot_topological_explore
         std::unordered_map<std::string,double> distance_count;
         // std::set<std::string> visited;
         std::stringstream ss;
-        ss << start_point << "-\n"<< partial_h_signature;
-        distance_count[ss.str()] = std::abs(goal_point-start_point);
+        ss << s_point << "-\n"<< partial_h_signature;
+        distance_count[ss.str()] = std::abs(g_point-s_point);
         RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : distance value = %lf",distance_count[ss.str()]);
-        AstarNode* start_node = new AstarNode(s_point,partial_h_signature,0,std::abs(goal_point-start_point),NULL,{});
+        AstarNode* start_node = new AstarNode(s_point,partial_h_signature,0,std::abs(g_point-s_point),NULL,{});
         pq.push(start_node);
         RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : start_node pushed");
         while(!pq.empty())
         {
             AstarNode* node = pq.top();
+            RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : (%lf , %lf)",node->point.real(),node->point.imag());
             pq.pop();
-            if(node->point == goal_point)
+
+            if(node->point == g_point)
             {         
                 Eigen::VectorXd filtered = (1.0/(2*M_PIf64))*node->h_signature;
 			    if((filtered.array()> 1.0).any() || (filtered.array() < -1.0).any())
 				    continue;
 			
                 Eigen::VectorXcd final_signature = node-> h_signature;
-                if(goal_point.real()==global_start_point.x && goal_point.imag() == global_start_point.y)
+                double real_world_goal_x, real_world_goal_y;
+                _costmap_client->costmap_.mapToWorld((unsigned int)g_point.real(),(unsigned int)g_point.imag(),real_world_goal_x,real_world_goal_y);
+
+                if(real_world_goal_x==global_start_point.x && real_world_goal_y == global_start_point.y)
                 {
                     final_signature = -final_signature;
                 }
+                RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : Final Signature %lf",real(final_signature(0)));
                 bool is_already_seen = false;
                 
                 for(long unsigned int i=0;i< traversed_h_signatures.size();++i)
@@ -140,12 +146,29 @@ namespace robot_topological_explore
                     path.push_back(current_point);
                     temp = temp->parent;
                 }
+            
 
                 std::reverse(path.begin(),path.end());
+               
+                std::vector<geometry_msgs::msg::Point> new_path;
+                for(unsigned int j=0;j<current_path_index;++j)
+                    new_path.push_back(current_path[j]);
                 for(unsigned int j=0;j<path.size();++j)
-                    current_path.push_back(path[j]);
+                    new_path.push_back(path[j]);
+
+                current_path = new_path;
+                for(unsigned int j=0;j<current_path.size();++j)
+                    RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : (%lf , %lf)",current_path[j].x,current_path[j].y);
+                // for(unsigned int j=0;j<path.size();++j)
+                //     current_path.push_back(path[j]);
+                
+                
+                // for(unsigned int i=0;i<current_path.size();++i)
+                // {
+                //     RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : (%lf , %lf)",current_path[i].x,current_path[i].y);
+                // }
                 //current_path.push_back(path);
-                return;    
+                 break; 
             }
             else
             {
@@ -153,7 +176,7 @@ namespace robot_topological_explore
                 {
                     std::complex<double> new_point = node->point + directions[i];
                     unsigned int new_point_index = _costmap_client->costmap_.getIndex((unsigned int)new_point.real(),(unsigned int)new_point.imag());
-                    if( ((unsigned int)real(new_point))<0 || ((unsigned int)real(new_point))>= map_size_x || ((unsigned int)imag(new_point))<0.0 || ((unsigned int)imag(new_point))>=map_size_y || (costmap_data[new_point_index] == nav2_costmap_2d::LETHAL_OBSTACLE || costmap_data[new_point_index] == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE))
+                    if( ((long)real(new_point))<0 || ((long)real(new_point))>= map_size_x || ((long)imag(new_point))<0 || ((long)imag(new_point))>=map_size_y || (costmap_data[new_point_index] == nav2_costmap_2d::LETHAL_OBSTACLE || costmap_data[new_point_index] == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE))
                         continue;
                     Eigen::VectorXcd s_vec = Eigen::VectorXcd::Constant(obstacle_coords.size(),node->point) - obstacle_coords;
                     Eigen::VectorXcd e_vec = Eigen::VectorXcd::Constant(obstacle_coords.size(),new_point) - obstacle_coords;
@@ -166,7 +189,7 @@ namespace robot_topological_explore
                     if(cell_cost == nav2_costmap_2d::NO_INFORMATION)
                         cell_cost = 1.0;
                     double f = node->f + cell_cost;
-                    double g = std::abs(new_point-goal_point);
+                    double g = std::abs(new_point-g_point);
 
                     // double c = node->cost + cell_cost + std::abs(new_point-goal_point);
                     
@@ -215,36 +238,46 @@ namespace robot_topological_explore
         Eigen::VectorXcd obstacle_points = Eigen::VectorXcd::Zero(obstacles.size());
         for(long unsigned int i=0;i<obstacles.size();i++)
         {
-            obstacle_points(i) = std::complex<double>(obstacles[i].obstacle_pose.position.x ,obstacles[i].obstacle_pose.position.y);
+            unsigned int current_obstacle_x, current_obstacle_y;
+            try
+            {
+                _costmap_client->costmap_.worldToMap(obstacles[i].obstacle_pose.position.x,obstacles[i].obstacle_pose.position.y,current_obstacle_x,current_obstacle_y);
+            }
+            catch(const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+                exit(0);
+            }
+            obstacle_points(i) = std::complex<double>(current_obstacle_x,current_obstacle_y);
         }
         // std::stringstream ss;
         // ss << "obstacle_points: " << obstacle_points << std::endl;
         // RCLCPP_INFO(node_.get_logger(), ss.str().c_str());
         traversed_h_signatures.clear();
-        for(long unsigned int i=0;i<traversed_paths.size();i++)
-        {
-            Eigen::VectorXd h_signature = Eigen::VectorXd::Zero(obstacles.size()); 
-            for(long unsigned int j=1;j<traversed_paths[i].size();++i)
-            {
-                Eigen::VectorXcd s_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(traversed_paths[i][j-1].x,traversed_paths[i][j-1].y)) - obstacle_points;
-                Eigen::VectorXcd e_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(traversed_paths[i][j].x,traversed_paths[i][j].y)) - obstacle_points;
-                Eigen::VectorXd temp = s_vec.array().binaryExpr(e_vec.array(),customOp);
-                h_signature += temp;
-            }
-            traversed_h_signatures.push_back(h_signature);
-        }
+        // for(long unsigned int i=0;i<traversed_paths.size();i++)
+        // {
+        //     Eigen::VectorXd h_signature = Eigen::VectorXd::Zero(obstacles.size()); 
+        //     for(long unsigned int j=1;j<traversed_paths[i].size();++i)
+        //     {
+        //         Eigen::VectorXcd s_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(traversed_paths[i][j-1].x,traversed_paths[i][j-1].y)) - obstacle_points;
+        //         Eigen::VectorXcd e_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(traversed_paths[i][j].x,traversed_paths[i][j].y)) - obstacle_points;
+        //         Eigen::VectorXd temp = s_vec.array().binaryExpr(e_vec.array(),customOp);
+        //         h_signature += temp;
+        //     }
+        //     traversed_h_signatures.push_back(h_signature);
+        // }
         RCLCPP_INFO(node_.get_logger(), "Completed computing h signatures traversed");
         partial_h_signature = Eigen::VectorXd::Zero(obstacles.size());
-        for(long unsigned int i = 0 ; i!=(current_path.size()-1) && i< current_path_index;++i)
-        {
-            Eigen::VectorXcd s_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(current_path[i].x,current_path[i].y)) - obstacle_points;
-            Eigen::VectorXcd e_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(current_path[i+1].x,current_path[i+1].y)) - obstacle_points;
-            Eigen::VectorXd temp = s_vec.array().binaryExpr(e_vec.array(),customOp);
-            partial_h_signature += temp;
-        }
+        // for(long unsigned int i = 0 ; i!=(current_path.size()-1) && i< current_path_index;++i)
+        // {
+        //     Eigen::VectorXcd s_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(current_path[i].x,current_path[i].y)) - obstacle_points;
+        //     Eigen::VectorXcd e_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(current_path[i+1].x,current_path[i+1].y)) - obstacle_points;
+        //     Eigen::VectorXd temp = s_vec.array().binaryExpr(e_vec.array(),customOp);
+        //     partial_h_signature += temp;
+        // }
         RCLCPP_INFO(node_.get_logger(), "partial_h_signature: %f", partial_h_signature.norm());
         get_non_homologous_path(current_pose,obstacle_points);
-
+        RCLCPP_INFO(node_.get_logger(), "Computed Path");
     }
 
 
