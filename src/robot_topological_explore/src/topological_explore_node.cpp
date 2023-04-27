@@ -80,53 +80,13 @@ public:
     public:
       PathFollowerBTNode(const std::string& name, const BT::NodeConfiguration& config,TopologicalExploreNode *node): BT::StatefulActionNode(name,config), node_(node)
       {
-        ;
-      }
-
-      BT::NodeStatus onStart() override
-      {
-        if(!node_->navigation_client_->wait_for_action_server())
-        {
-          RCLCPP_INFO(node_->get_logger(),"Waiting for navigation action server");
-        }
-        auto goal_msg = nav2_msgs::action::NavigateToPose::Goal();     
-        goal_msg.pose.header.frame_id = "map";
-        goal_msg.pose.header.stamp = node_->now();
-        goal_msg.pose.pose.position.x = node_->robot.current_path[node_->robot.current_path_index].x;
-        goal_msg.pose.pose.position.y = node_->robot.current_path[node_->robot.current_path_index].y;
-
-
-        auto goal_options = rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SendGoalOptions();
-        goal_options.goal_response_callback = std::bind(&PathFollowerBTNode::path_goal_response_callback, this, std::placeholders::_1);
-
-        goal_options.feedback_callback =
-          std::bind(&PathFollowerBTNode::path_feedback_callback, this, std::placeholders::_1, std::placeholders::_2);
-        goal_options.result_callback =
-          std::bind(&PathFollowerBTNode::path_result_callback, this, std::placeholders::_1);
-     
-        node_->navigation_client_->async_send_goal(goal_msg, goal_options);
-        //path_action_client_->async_send_goal(goal_msg, path_goal_options);
-        //RCLCPP_INFO(this->get_logger(), "Gave the path to nav2 server");
-        return BT::NodeStatus::RUNNING;
-
-      }
-      BT::NodeStatus onRunning() override
-      {
-        if(goal_succeeded)
-        {
-          return BT::NodeStatus::SUCCESS;
-        }
-        else if(path_following_failed)
-        {
-          return BT::NodeStatus::FAILURE;
-        }
-        else
-        {
-          return BT::NodeStatus::RUNNING;
-        }
         
       }
+    
 
+      BT::NodeStatus onStart() override;
+      BT::NodeStatus onRunning() override;
+      void onHalted() override;
 
       void path_goal_response_callback(std::shared_future<GoalHandleNavigateToPose::SharedPtr> future)
       {  
@@ -155,8 +115,19 @@ public:
           case rclcpp_action::ResultCode::SUCCEEDED:
           {
             RCLCPP_INFO(node_->get_logger(), "Path following succeeded!"); 
+            if(node_->robot.current_path_index == node_->robot.current_path.size())
+            {
+              goal_succeeded = true;
+              return;
+            }
             
-            auto goal_msg = nav2_msgs::action::NavigateToPose::Goal();       
+            node_->robot.current_path_index+=1;
+
+            auto goal_msg = nav2_msgs::action::NavigateToPose::Goal();      
+            goal_msg.pose.header.frame_id = "map";
+            goal_msg.pose.header.stamp = node_->now();
+            goal_msg.pose.pose.position.x = node_->robot.current_path[node_->robot.current_path_index].x;
+            goal_msg.pose.pose.position.y = node_->robot.current_path[node_->robot.current_path_index].y; 
 
             auto goal_options = rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SendGoalOptions();
             goal_options.goal_response_callback = std::bind(&PathFollowerBTNode::path_goal_response_callback, this, std::placeholders::_1);
@@ -219,9 +190,15 @@ public:
       return std::make_unique<PathFinderBTNode>(name, config, this);
     };
 
+    auto pathfollower_builder = [&](const std::string &name, const BT::NodeConfiguration &config)
+    {
+      return std::make_unique<PathFollowerBTNode>(name, config, this);
+    };
+
 
     bt_factory.registerBuilder<ObstacleFinderBTNode>("ObstacleFinderBTNode", obstacle_builder);
     bt_factory.registerBuilder<PathFinderBTNode>("PathFinderBTNode", pathfinder_builder);
+    bt_factory.registerBuilder<PathFollowerBTNode>("PathFollowerBTNode",pathfollower_builder);
     tree = bt_factory.createTreeFromFile(bt_dir + "/tree.xml");
   }
 
@@ -334,6 +311,55 @@ public:
   rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr navigation_client_;
 
 };
+
+  BT::NodeStatus TopologicalExploreNode::PathFollowerBTNode::onStart()
+  {
+        if(!node_->navigation_client_->wait_for_action_server())
+        {
+          RCLCPP_INFO(node_->get_logger(),"Waiting for navigation action server");
+        }
+        auto goal_msg = nav2_msgs::action::NavigateToPose::Goal();     
+        goal_msg.pose.header.frame_id = "map";
+        goal_msg.pose.header.stamp = node_->now();
+        goal_msg.pose.pose.position.x = node_->robot.current_path[node_->robot.current_path_index].x;
+        goal_msg.pose.pose.position.y = node_->robot.current_path[node_->robot.current_path_index].y;
+
+
+        auto goal_options = rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SendGoalOptions();
+        goal_options.goal_response_callback = std::bind(&PathFollowerBTNode::path_goal_response_callback, this, std::placeholders::_1);
+
+        goal_options.feedback_callback =
+          std::bind(&PathFollowerBTNode::path_feedback_callback, this, std::placeholders::_1, std::placeholders::_2);
+        goal_options.result_callback =
+          std::bind(&PathFollowerBTNode::path_result_callback, this, std::placeholders::_1);
+     
+        node_->navigation_client_->async_send_goal(goal_msg, goal_options);
+        //path_action_client_->async_send_goal(goal_msg, path_goal_options);
+        //RCLCPP_INFO(this->get_logger(), "Gave the path to nav2 server");
+        return BT::NodeStatus::RUNNING;
+  }
+
+  BT::NodeStatus  TopologicalExploreNode::PathFollowerBTNode::onRunning()
+  {
+        if(goal_succeeded)
+        {
+          return BT::NodeStatus::SUCCESS;
+        }
+        else if(path_following_failed)
+        {
+          return BT::NodeStatus::FAILURE;
+        }
+        else
+        {
+          return BT::NodeStatus::RUNNING;
+        }
+        
+  }
+
+  void TopologicalExploreNode::PathFollowerBTNode::onHalted()
+  {
+    ;
+  }
 
 int main(int argc, char *argv[])
 {

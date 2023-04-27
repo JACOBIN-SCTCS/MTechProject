@@ -45,7 +45,7 @@ namespace robot_topological_explore
 
     void Robot::get_non_homologous_path(geometry_msgs::msg::Point current_pose, Eigen::VectorXcd obstacle_coords)
     {
-        RCLCPP_INFO(node_.get_logger(), "Reached inside get_non_homologous path function");
+        // RCLCPP_INFO(node_.get_logger(), "Reached inside get_non_homologous path function");
 
         current_path.erase(current_path.begin()+current_path_index,current_path.end());
 
@@ -56,7 +56,7 @@ namespace robot_topological_explore
         unsigned int map_size_y = _costmap_client->costmap_.getSizeInCellsY();
         //int count_limit = 5;
         //int count = 0;
-        RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : Map Size = %u x %u",map_size_x,map_size_y);
+        // RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : Map Size = %u x %u",map_size_x,map_size_y);
 
         unsigned int mx,my;
         unsigned int gx,gy;
@@ -65,7 +65,7 @@ namespace robot_topological_explore
         std::complex<double> s_point(mx,my);
         std::complex<double> g_point(gx,gy);
         
-        RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : start_point = ( %u , %u ) , goal_point = ( %u , %u)",mx,my,gx,gy);
+        // RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : start_point = ( %u , %u ) , goal_point = ( %u , %u)",mx,my,gx,gy);
 
         
         // searchObstacles();
@@ -88,14 +88,14 @@ namespace robot_topological_explore
         std::stringstream ss;
         ss << s_point << "-\n"<< partial_h_signature;
         distance_count[ss.str()] = std::abs(g_point-s_point);
-        RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : distance value = %lf",distance_count[ss.str()]);
+        // RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : distance value = %lf",distance_count[ss.str()]);
         AstarNode* start_node = new AstarNode(s_point,partial_h_signature,0,std::abs(g_point-s_point),NULL,{});
         pq.push(start_node);
-        RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : start_node pushed");
+        // RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : start_node pushed");
         while(!pq.empty())
         {
             AstarNode* node = pq.top();
-            RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : (%lf , %lf)",node->point.real(),node->point.imag());
+            // RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : (%lf , %lf)",node->point.real(),node->point.imag());
             pq.pop();
 
             if(node->point == g_point)
@@ -112,7 +112,7 @@ namespace robot_topological_explore
                 {
                     final_signature = -final_signature;
                 }
-                RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : Final Signature %lf",real(final_signature(0)));
+                // RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : Final Signature %lf",real(final_signature(0)));
                 bool is_already_seen = false;
                 
                 for(long unsigned int i=0;i< traversed_h_signatures.size();++i)
@@ -269,7 +269,7 @@ namespace robot_topological_explore
             }
             traversed_h_signatures.push_back(h_signature);
         }
-        RCLCPP_INFO(node_.get_logger(), "Completed computing h signatures traversed");
+        // RCLCPP_INFO(node_.get_logger(), "Completed computing h signatures traversed");
         partial_h_signature = Eigen::VectorXd::Zero(obstacles.size());
         
         for(long i=0; i < current_path_index;++i)
@@ -291,9 +291,9 @@ namespace robot_topological_explore
             partial_h_signature += temp;
         }
         
-        RCLCPP_INFO(node_.get_logger(), "partial_h_signature: %f", partial_h_signature.norm());
+        // RCLCPP_INFO(node_.get_logger(), "partial_h_signature: %f", partial_h_signature.norm());
         get_non_homologous_path(current_pose,obstacle_points);
-        RCLCPP_INFO(node_.get_logger(), "Computed Path");
+        // RCLCPP_INFO(node_.get_logger(), "Computed Path");
     }
 
 
