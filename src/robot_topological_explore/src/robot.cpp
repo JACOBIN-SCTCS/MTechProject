@@ -149,7 +149,7 @@ namespace robot_topological_explore
             
 
                 std::reverse(path.begin(),path.end());
-               
+            
                 std::vector<geometry_msgs::msg::Point> new_path;
                 for(unsigned int j=0;j<current_path_index;++j)
                     new_path.push_back(current_path[j]);
@@ -157,17 +157,9 @@ namespace robot_topological_explore
                     new_path.push_back(path[j]);
 
                 current_path = new_path;
-                for(unsigned int j=0;j<current_path.size();++j)
-                    RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : (%lf , %lf)",current_path[j].x,current_path[j].y);
-                // for(unsigned int j=0;j<path.size();++j)
-                //     current_path.push_back(path[j]);
-                
-                
-                // for(unsigned int i=0;i<current_path.size();++i)
-                // {
-                //     RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : (%lf , %lf)",current_path[i].x,current_path[i].y);
-                // }
-                //current_path.push_back(path);
+                // for(unsigned int j=0;j<current_path.size();++j)
+                //     RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : (%lf , %lf)",current_path[j].x,current_path[j].y);
+   
                  break; 
             }
             else
@@ -254,27 +246,51 @@ namespace robot_topological_explore
         // ss << "obstacle_points: " << obstacle_points << std::endl;
         // RCLCPP_INFO(node_.get_logger(), ss.str().c_str());
         traversed_h_signatures.clear();
-        // for(long unsigned int i=0;i<traversed_paths.size();i++)
-        // {
-        //     Eigen::VectorXd h_signature = Eigen::VectorXd::Zero(obstacles.size()); 
-        //     for(long unsigned int j=1;j<traversed_paths[i].size();++i)
-        //     {
-        //         Eigen::VectorXcd s_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(traversed_paths[i][j-1].x,traversed_paths[i][j-1].y)) - obstacle_points;
-        //         Eigen::VectorXcd e_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(traversed_paths[i][j].x,traversed_paths[i][j].y)) - obstacle_points;
-        //         Eigen::VectorXd temp = s_vec.array().binaryExpr(e_vec.array(),customOp);
-        //         h_signature += temp;
-        //     }
-        //     traversed_h_signatures.push_back(h_signature);
-        // }
+        for(long unsigned int i=0;i<traversed_paths.size();i++)
+        {
+            Eigen::VectorXd h_signature = Eigen::VectorXd::Zero(obstacles.size()); 
+            for(long unsigned int j=1;j<traversed_paths[i].size();++i)
+            {
+                unsigned int sx,sy,gx,gy;
+                try
+                {
+                    _costmap_client->costmap_.worldToMap(traversed_paths[i][j-1].x,traversed_paths[i][j-1].y,sx,sy);
+                    _costmap_client->costmap_.worldToMap(traversed_paths[i][j].x,traversed_paths[i][j].y,gx,gy);
+                }
+                catch(const std::exception& e)
+                {
+                    std::cerr << e.what() << '\n';
+                    exit(0);
+                }
+                Eigen::VectorXcd s_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(sx,sy)) - obstacle_points;
+                Eigen::VectorXcd e_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(gx,gy)) - obstacle_points;
+                Eigen::VectorXd temp = s_vec.array().binaryExpr(e_vec.array(),customOp);
+                h_signature += temp;
+            }
+            traversed_h_signatures.push_back(h_signature);
+        }
         RCLCPP_INFO(node_.get_logger(), "Completed computing h signatures traversed");
         partial_h_signature = Eigen::VectorXd::Zero(obstacles.size());
-        // for(long unsigned int i = 0 ; i!=(current_path.size()-1) && i< current_path_index;++i)
-        // {
-        //     Eigen::VectorXcd s_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(current_path[i].x,current_path[i].y)) - obstacle_points;
-        //     Eigen::VectorXcd e_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(current_path[i+1].x,current_path[i+1].y)) - obstacle_points;
-        //     Eigen::VectorXd temp = s_vec.array().binaryExpr(e_vec.array(),customOp);
-        //     partial_h_signature += temp;
-        // }
+        
+        for(long i=0; i < current_path_index;++i)
+        {
+            unsigned int sx,sy,gx,gy;
+            try
+            {
+                _costmap_client->costmap_.worldToMap(current_path[i].x,current_path[i].y,sx,sy);
+                _costmap_client->costmap_.worldToMap(current_path[i+1].x,current_path[i+1].y,gx,gy);
+            }
+            catch(const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+                exit(0);
+            }
+            Eigen::VectorXcd s_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(sx,sy)) - obstacle_points;
+            Eigen::VectorXcd e_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(gx,gy)) - obstacle_points;
+            Eigen::VectorXd temp = s_vec.array().binaryExpr(e_vec.array(),customOp);
+            partial_h_signature += temp;
+        }
+        
         RCLCPP_INFO(node_.get_logger(), "partial_h_signature: %f", partial_h_signature.norm());
         get_non_homologous_path(current_pose,obstacle_points);
         RCLCPP_INFO(node_.get_logger(), "Computed Path");

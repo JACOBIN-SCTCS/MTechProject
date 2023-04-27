@@ -2,6 +2,7 @@
      <BehaviorTree ID="MainTree">
         <Sequence name="root_sequence">
             <ObstacleFinderBTNode name="obstaclefinderbtnode"/>
+            <PathFinderBTNode name="pathfinderbtnode"/>
         </Sequence>
      </BehaviorTree>
  </root>

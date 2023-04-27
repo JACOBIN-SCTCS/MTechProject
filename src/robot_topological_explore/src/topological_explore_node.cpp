@@ -1,5 +1,6 @@
 #include <memory>
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp_action/rclcpp_action.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "behaviortree_cpp_v3/bt_factory.h"
@@ -7,6 +8,7 @@
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 #include "robot_topological_explore/robot.h"
+#include "nav2_msgs/action/navigate_to_pose.hpp"
 
 using std::placeholders::_1;
 using namespace std::chrono_literals;
@@ -17,6 +19,9 @@ const std::string bt_dir = ament_index_cpp::get_package_share_directory("robot_t
 class TopologicalExploreNode : public rclcpp::Node
 {
 public:
+
+  using GoalHandleNavigateToPose = rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateToPose>;
+
   TopologicalExploreNode() : Node("topological_explorer"),
                              _tf_buffer(this->get_clock()),
                              tf_listener_(_tf_buffer),
@@ -27,6 +32,7 @@ public:
     marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("obstacle_rep_markers", 10);
     locations_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("locations",10);
     paths_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("sample_path",10);
+    navigation_client_ = rclcpp_action::create_client< nav2_msgs::action::NavigateToPose>(this,"navigate_to_pose");
     visualize_obstacle_markers(costmap_client.obstacles_);
   }
   
@@ -44,12 +50,151 @@ public:
         node_->costmap_client.updateObstacles();
         node_->visualize_obstacle_markers(node_->costmap_client.obstacles_);
         node_->visualize_positions({node_->robot.global_start_point, node_->robot.global_goal_pose});
+        return BT::NodeStatus::SUCCESS;
+      }
+
+      TopologicalExploreNode *node_;
+  };
+
+  class PathFinderBTNode : public BT::SyncActionNode
+  {
+    public:
+      PathFinderBTNode(const std::string &name, const BT::NodeConfiguration &config, TopologicalExploreNode *node) : BT::SyncActionNode(name, config),
+                                                                                                                    node_(node)
+      {
+      }
+
+      BT::NodeStatus tick() override
+      {
+        std::cout << "PathFinderBTNode: " << this->name() << std::endl;
         node_->robot.get_exploration_path();
         node_->visualize_path(node_->robot.current_path);
         return BT::NodeStatus::SUCCESS;
       }
 
       TopologicalExploreNode *node_;
+  };
+
+  class PathFollowerBTNode : public BT::StatefulActionNode
+  {
+    public:
+      PathFollowerBTNode(const std::string& name, const BT::NodeConfiguration& config,TopologicalExploreNode *node): BT::StatefulActionNode(name,config), node_(node)
+      {
+        ;
+      }
+
+      BT::NodeStatus onStart() override
+      {
+        if(!node_->navigation_client_->wait_for_action_server())
+        {
+          RCLCPP_INFO(node_->get_logger(),"Waiting for navigation action server");
+        }
+        auto goal_msg = nav2_msgs::action::NavigateToPose::Goal();     
+        goal_msg.pose.header.frame_id = "map";
+        goal_msg.pose.header.stamp = node_->now();
+        goal_msg.pose.pose.position.x = node_->robot.current_path[node_->robot.current_path_index].x;
+        goal_msg.pose.pose.position.y = node_->robot.current_path[node_->robot.current_path_index].y;
+
+
+        auto goal_options = rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SendGoalOptions();
+        goal_options.goal_response_callback = std::bind(&PathFollowerBTNode::path_goal_response_callback, this, std::placeholders::_1);
+
+        goal_options.feedback_callback =
+          std::bind(&PathFollowerBTNode::path_feedback_callback, this, std::placeholders::_1, std::placeholders::_2);
+        goal_options.result_callback =
+          std::bind(&PathFollowerBTNode::path_result_callback, this, std::placeholders::_1);
+     
+        node_->navigation_client_->async_send_goal(goal_msg, goal_options);
+        //path_action_client_->async_send_goal(goal_msg, path_goal_options);
+        //RCLCPP_INFO(this->get_logger(), "Gave the path to nav2 server");
+        return BT::NodeStatus::RUNNING;
+
+      }
+      BT::NodeStatus onRunning() override
+      {
+        if(goal_succeeded)
+        {
+          return BT::NodeStatus::SUCCESS;
+        }
+        else if(path_following_failed)
+        {
+          return BT::NodeStatus::FAILURE;
+        }
+        else
+        {
+          return BT::NodeStatus::RUNNING;
+        }
+        
+      }
+
+
+      void path_goal_response_callback(std::shared_future<GoalHandleNavigateToPose::SharedPtr> future)
+      {  
+        auto goal_handle = future.get();
+        if (!goal_handle) 
+        {
+          RCLCPP_ERROR(node_->get_logger(), "Goal was rejected by server");
+          path_following_failed = true;
+          return;
+        }
+        RCLCPP_INFO(node_->get_logger(), "Goal accepted by server, waiting for result");
+
+      }
+      void path_feedback_callback(GoalHandleNavigateToPose::SharedPtr,const std::shared_ptr<const nav2_msgs::action::NavigateToPose::Feedback> feedback)
+      {
+        auto distance_remaining = feedback->distance_remaining;
+        std::stringstream ss;
+        ss << distance_remaining << "left to traverse";
+        RCLCPP_INFO(node_->get_logger(), ss.str().c_str());
+
+      }
+      void path_result_callback(const GoalHandleNavigateToPose::WrappedResult &result)
+      {
+        switch (result.code)
+        {
+          case rclcpp_action::ResultCode::SUCCEEDED:
+          {
+            RCLCPP_INFO(node_->get_logger(), "Path following succeeded!"); 
+            
+            auto goal_msg = nav2_msgs::action::NavigateToPose::Goal();       
+
+            auto goal_options = rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SendGoalOptions();
+            goal_options.goal_response_callback = std::bind(&PathFollowerBTNode::path_goal_response_callback, this, std::placeholders::_1);
+
+            goal_options.feedback_callback =
+                std::bind(&PathFollowerBTNode::path_feedback_callback, this, std::placeholders::_1, std::placeholders::_2);
+            goal_options.result_callback =
+              std::bind(&PathFollowerBTNode::path_result_callback, this, std::placeholders::_1);
+     
+            node_->navigation_client_->async_send_goal(goal_msg, goal_options);
+            return;
+          }
+          case rclcpp_action::ResultCode::ABORTED:
+          {
+            RCLCPP_ERROR(node_->get_logger(), "Path following aborted");
+            path_following_failed = true;
+            return;
+          }
+
+          case rclcpp_action::ResultCode::CANCELED:
+          {
+            RCLCPP_ERROR(node_->get_logger(), "Path following canceled");
+            path_following_failed = true;
+            return;
+          }
+          default:
+          {
+            RCLCPP_ERROR(node_->get_logger(), "Unknown result code");
+            path_following_failed = true;
+            return;
+          }
+        }
+      }
+
+      TopologicalExploreNode *node_;
+      bool goal_succeeded = false;
+      bool path_following_failed = false;
+
   };
 
   void setup()
@@ -69,7 +214,14 @@ public:
       return std::make_unique<ObstacleFinderBTNode>(name, config, this);
     };
 
+    auto pathfinder_builder = [&](const std::string &name, const BT::NodeConfiguration &config)
+    {
+      return std::make_unique<PathFinderBTNode>(name, config, this);
+    };
+
+
     bt_factory.registerBuilder<ObstacleFinderBTNode>("ObstacleFinderBTNode", obstacle_builder);
+    bt_factory.registerBuilder<PathFinderBTNode>("PathFinderBTNode", pathfinder_builder);
     tree = bt_factory.createTreeFromFile(bt_dir + "/tree.xml");
   }
 
@@ -179,6 +331,8 @@ public:
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr locations_pub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr paths_pub_;
+  rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr navigation_client_;
+
 };
 
 int main(int argc, char *argv[])
