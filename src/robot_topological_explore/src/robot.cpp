@@ -131,6 +131,7 @@ namespace robot_topological_explore
                 AstarNode* temp = node;
                 while(temp!=NULL)
                 {
+                    // RCLCPP_INFO(node_.get_logger(),"(%f,%f)",temp->point.real(),temp->point.imag());
                     double current_point_x , current_point_y;
                     try
                     {
@@ -143,7 +144,15 @@ namespace robot_topological_explore
                     geometry_msgs::msg::Point current_point;
                     current_point.x = current_point_x;
                     current_point.y = current_point_y;
-                    path.push_back(current_point);
+                    if(path.size() > 0)
+                    {
+                        if( get_absolute_distance(current_point,path[path.size()-1]) >= 0.5)
+                            path.push_back(current_point);
+                    }
+                    else
+                    {
+                        path.push_back(current_point);
+                    }
                     temp = temp->parent;
                 }
             
