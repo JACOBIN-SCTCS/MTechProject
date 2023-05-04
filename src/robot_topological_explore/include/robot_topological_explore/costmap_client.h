@@ -44,6 +44,8 @@ namespace robot_topological_explore
             void updateObstacles();
             
             std::vector<Obstacle> obstacles_;
+            unsigned int map_width;
+            unsigned int map_height;
 
 
         //protected:

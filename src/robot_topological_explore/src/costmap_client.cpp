@@ -96,19 +96,21 @@ namespace robot_topological_explore
         double origin_x = msg->info.origin.position.x;
         double origin_y = msg->info.origin.position.y;
 
-        RCLCPP_INFO(node_.get_logger(),"Costmap Width = %u Height = %u Resolution = %lf", num_cells_x,num_cells_y,resolution);
+        // RCLCPP_INFO(node_.get_logger(),"Costmap Width = %u Height = %u Resolution = %lf", num_cells_x,num_cells_y,resolution);
         costmap_.resizeMap(num_cells_x, num_cells_y, resolution, origin_x, origin_y);
         auto* mutex = costmap_.getMutex();
         std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(*mutex);
 
         unsigned char* costmap_data = costmap_.getCharMap();
         size_t costmap_size = costmap_.getSizeInCellsX() * costmap_.getSizeInCellsY();
-        RCLCPP_INFO(node_.get_logger(), "full map update, %lu values", costmap_size);
+        // RCLCPP_INFO(node_.get_logger(), "full map update, %lu values", costmap_size);
         for (size_t i = 0; i < costmap_size && i < msg->data.size(); ++i) {
             unsigned char cell_cost = static_cast<unsigned char>(msg->data[i]);
             costmap_data[i] = cell_cost;
             costmap_data[i] = cost_translation_table__[cell_cost];
         }
+        map_width = costmap_.getSizeInCellsX();
+        map_height = costmap_.getSizeInCellsY();
         costmap_received = true;
     }
 
@@ -161,12 +163,77 @@ namespace robot_topological_explore
 
     robot_topological_explore::WorldCoord robot_topological_explore::Costmap2DClient::getGlobalGoalPose()
     {
-        size_t costmap_size = costmap_.getSizeInCellsX() * costmap_.getSizeInCellsY();
-        unsigned int mx , my;
-        double wx , wy ;
-        costmap_.indexToCells(costmap_size-1, mx, my);
-        costmap_.mapToWorld(mx, my, wx, wy);
-        return {wx,wy};
+        auto* mutex = costmap_.getMutex();
+        std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(*mutex);
+        map_width = costmap_.getSizeInCellsX();
+        map_height = costmap_.getSizeInCellsY();
+        size_t costmap_size =map_width * map_height;
+        // RCLCPP_INFO(node_.get_logger(),"Size = (%u,%u)",costmap_.getSizeInCellsX(),costmap_.getSizeInCellsY());
+        std::vector<bool> visited_array;
+        for(unsigned int i=0;i<costmap_size;++i)
+            visited_array.push_back(false);
+        // std::vector<bool> visited_array(costmap_size,false);
+ 
+        unsigned char* costmap_data = costmap_.getCharMap();
+        
+        // RCLCPP_INFO(node_.get_logger(), "Costmap size: %lu , array size = %lu", costmap_size,costmap_data.size());
+        if(costmap_data[costmap_size-1] == 255 || !(costmap_data[costmap_size-1] == 254 || costmap_data[costmap_size-1] == 253))
+        {
+            unsigned int mx , my;
+            double wx , wy ;
+            costmap_.indexToCells(costmap_size-1, mx, my);
+            costmap_.mapToWorld(mx, my, wx, wy);
+            return {wx,wy};
+        }
+        else
+        {
+            unsigned int mx , my;
+            double wx , wy ;
+
+            std::queue<unsigned int> queue;
+            queue.push(costmap_size-1);
+            visited_array[costmap_size-1] = true;
+            while(!queue.empty())
+            {
+                unsigned int index = queue.front();
+                queue.pop();
+                if(!(costmap_data[index] == 254 || costmap_data[index] == 253 || costmap_data[index]==255))
+                {
+                    costmap_.indexToCells(index, mx, my);
+                    costmap_.mapToWorld(mx, my, wx, wy);
+                    RCLCPP_INFO(node_.get_logger(), "Map size = %lu , Index = %u ;Global Goal Pose: x=%f, y=%f",costmap_size,index ,wx, wy);
+                    return {wx,wy};
+                }
+                else
+                {
+                    if(index%map_width != 0 && !visited_array[index-1])
+                    {
+                        queue.push(index-1);
+                        visited_array[index-1] = true;
+                    }
+                    if(index%map_width != map_width-1 && !visited_array[index+1])
+                    {
+                        queue.push(index+1);
+                        visited_array[index+1] = true;
+                    }
+                    if(index/map_width != 0 && !visited_array[index-map_width])
+                    {
+                        queue.push(index-map_width);
+                        visited_array[index-map_width] = true;
+                    }
+                    if(index/map_width != map_height-1 && !visited_array[index+map_width])
+                    {
+                        queue.push(index+map_width);
+                        visited_array[index+map_width] = true;
+                    }
+                    
+                }
+            }
+            costmap_.indexToCells(costmap_size-1, mx, my);
+            costmap_.mapToWorld(mx, my, wx, wy);
+            return {wx,wy};
+        }
+       
     }
 
     nav2_costmap_2d::Costmap2D* robot_topological_explore::Costmap2DClient::getCostmap()

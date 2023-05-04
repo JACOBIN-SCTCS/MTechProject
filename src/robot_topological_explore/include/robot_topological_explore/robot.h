@@ -20,6 +20,7 @@ namespace robot_topological_explore
         Eigen::VectorXd h_signature;
         double f;
         double g;
+        double cost;
         struct AstarNode* parent; 
         std::vector<std::complex<double>> edge;
 
@@ -29,6 +30,12 @@ namespace robot_topological_explore
         double g,
         struct AstarNode* pa,
         std::vector<std::complex<double>> e) : point(p) , h_signature(h),f(f),g(g),parent(pa) , edge(e) {}
+
+        AstarNode(std::complex<double> p,
+        Eigen::VectorXd h,
+        double c,
+        struct AstarNode* pa,
+        std::vector<std::complex<double>> e) : point(p) , h_signature(h),cost(c),parent(pa) , edge(e) {}
   
     };
 

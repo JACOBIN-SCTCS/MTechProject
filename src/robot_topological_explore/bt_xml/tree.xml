@@ -3,7 +3,7 @@
         <Sequence name="root_sequence">
             <ObstacleFinderBTNode name="obstaclefinderbtnode"/>
             <PathFinderBTNode name="pathfinderbtnode"/>
-            <PathFollowerBTNode name="pathfollowerbtnode"/>
+            <!-- <PathFollowerBTNode name="pathfollowerbtnode"/> -->
         </Sequence>
      </BehaviorTree>
  </root>

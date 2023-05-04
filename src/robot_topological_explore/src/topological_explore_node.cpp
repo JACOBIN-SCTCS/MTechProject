@@ -49,10 +49,10 @@ public:
 
       BT::NodeStatus tick() override
       {
-        std::cout << "ObstacleFinderBTNode: " << this->name() << std::endl;
+        // std::cout << "ObstacleFinderBTNode: " << this->name() << std::endl;
         node_->costmap_client.updateObstacles();
         node_->visualize_obstacle_markers(node_->costmap_client.obstacles_);
-        node_->visualize_positions({node_->robot.global_start_point, node_->robot.global_goal_pose});
+        // node_->visualize_positions({node_->robot.global_start_point, node_->robot.global_goal_pose});
         return BT::NodeStatus::SUCCESS;
       }
 
@@ -69,9 +69,15 @@ public:
 
       BT::NodeStatus tick() override
       {
-        std::cout << "PathFinderBTNode: " << this->name() << std::endl;
-        node_->robot.get_exploration_path();
-        node_->visualize_path(node_->robot.current_path);
+        // std::cout << "PathFinderBTNode: " << this->name() << std::endl;
+        auto current_goal = node_->costmap_client.getGlobalGoalPose();
+
+        geometry_msgs::msg::Point current_goal_point;
+        current_goal_point.x = current_goal.x;
+        current_goal_point.y = current_goal.y;
+        node_->visualize_positions({current_goal_point, node_->robot.global_start_point});
+        // node_->robot.get_exploration_path();
+        // node_->visualize_path(node_->robot.current_path);
         return BT::NodeStatus::SUCCESS;
       }
 
@@ -189,7 +195,7 @@ public:
   void updateBT()
   {
     tree.tickRoot();
-    RCLCPP_INFO(this->get_logger(), "Reached here");
+    // RCLCPP_INFO(this->get_logger(), "Reached here");
   }
 
   void visualize_obstacle_markers(std::vector<robot_topological_explore::Obstacle> obstacles)
