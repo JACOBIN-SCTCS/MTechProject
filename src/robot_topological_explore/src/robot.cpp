@@ -146,7 +146,7 @@ namespace robot_topological_explore
                     current_point.y = current_point_y;
                     if(path.size() > 0)
                     {
-                        if( get_absolute_distance(current_point,path[path.size()-1]) >= 0.5)
+                        if( (get_absolute_distance(current_point,path[path.size()-1]) >= 0.5)&& (get_absolute_distance(current_point,current_pose)>=0.5))
                             path.push_back(current_point);
                     }
                     else
