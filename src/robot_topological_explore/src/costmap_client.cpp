@@ -197,7 +197,7 @@ namespace robot_topological_explore
             {
                 unsigned int index = queue.front();
                 queue.pop();
-                if(!(costmap_data[index] == 254 || costmap_data[index] == 253 || costmap_data[index]==255))
+                if(!(costmap_data[index] == 254 || costmap_data[index] == 253))
                 {
                     costmap_.indexToCells(index, mx, my);
                     costmap_.mapToWorld(mx, my, wx, wy);
@@ -206,22 +206,22 @@ namespace robot_topological_explore
                 }
                 else
                 {
-                    if(index%map_width != 0 && !visited_array[index-1])
+                    if(index%map_width != 0  && !visited_array[index-1])
                     {
                         queue.push(index-1);
                         visited_array[index-1] = true;
                     }
-                    if(index%map_width != map_width-1 && !visited_array[index+1])
+                    if(index%map_width != map_width-1 && (index+1) < costmap_size && !visited_array[index+1])
                     {
                         queue.push(index+1);
                         visited_array[index+1] = true;
                     }
-                    if(index/map_width != 0 && !visited_array[index-map_width])
+                    if(index/map_width != 0 &&  !visited_array[index-map_width])
                     {
                         queue.push(index-map_width);
                         visited_array[index-map_width] = true;
                     }
-                    if(index/map_width != map_height-1 && !visited_array[index+map_width])
+                    if(index/map_width != map_height-1 && (index+map_width) < costmap_size &&!visited_array[index+map_width])
                     {
                         queue.push(index+map_width);
                         visited_array[index+map_width] = true;

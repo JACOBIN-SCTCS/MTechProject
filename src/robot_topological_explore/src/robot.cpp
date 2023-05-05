@@ -216,7 +216,9 @@ namespace robot_topological_explore
 
     void Robot::get_exploration_path()
     {
+        // Adopt either Frontier Based Exploration or Topological Exploration here
         current_pose = _costmap_client->getRobotPose().pose.position;
+
         if(get_absolute_distance(current_pose,goal_pose) <= 0.001)
         {
             if(goal_pose.x == global_goal_pose.x && goal_pose.y == global_goal_pose.y)
@@ -226,18 +228,18 @@ namespace robot_topological_explore
             }
             else
             {
-                std::reverse(current_path.begin(),current_path.end());
                 goal_pose = global_goal_pose;
                 start_point = current_pose;
+                std::reverse(current_path.begin(),current_path.end());
             }   
             std::vector<geometry_msgs::msg::Point> current_path_copy;
             
             for(long unsigned int i=0;i<current_path.size();++i)
                 current_path_copy.push_back(current_path[i]);
                
-            current_path_index = 0;
             traversed_paths.push_back(current_path_copy);
             current_path.clear();
+            current_path_index = 0;
         }
 
         auto obstacles = _costmap_client->obstacles_;
@@ -256,9 +258,7 @@ namespace robot_topological_explore
             }
             obstacle_points(i) = std::complex<double>(current_obstacle_x,current_obstacle_y);
         }
-        // std::stringstream ss;
-        // ss << "obstacle_points: " << obstacle_points << std::endl;
-        // RCLCPP_INFO(node_.get_logger(), ss.str().c_str());
+
         traversed_h_signatures.clear();
         for(long unsigned int i=0;i<traversed_paths.size();i++)
         {
@@ -286,13 +286,13 @@ namespace robot_topological_explore
         // RCLCPP_INFO(node_.get_logger(), "Completed computing h signatures traversed");
         partial_h_signature = Eigen::VectorXd::Zero(obstacles.size());
         
-        for(long i=0; i < current_path_index;++i)
+        for(long i=1; i <= current_path_index;++i)
         {
             unsigned int sx,sy,gx,gy;
             try
             {
-                _costmap_client->costmap_.worldToMap(current_path[i].x,current_path[i].y,sx,sy);
-                _costmap_client->costmap_.worldToMap(current_path[i+1].x,current_path[i+1].y,gx,gy);
+                _costmap_client->costmap_.worldToMap(current_path[i-1].x,current_path[i-1].y,sx,sy);
+                _costmap_client->costmap_.worldToMap(current_path[i].x,current_path[i].y,gx,gy);
             }
             catch(const std::exception& e)
             {
@@ -306,9 +306,23 @@ namespace robot_topological_explore
         }
         
         // RCLCPP_INFO(node_.get_logger(), "partial_h_signature: %f", partial_h_signature.norm());
-        get_non_homologous_path(current_pose,obstacle_points);
         // RCLCPP_INFO(node_.get_logger(), "Computed Path");
+        get_non_homologous_path(current_pose,obstacle_points);
     }
+    
+    void Robot::set_global_goal_pose(geometry_msgs::msg::Point new_global_goal)
+    {
+        if(global_goal_pose.x == goal_pose.x && global_goal_pose.y == goal_pose.y)
+        {
+            global_goal_pose = new_global_goal;
+            goal_pose = new_global_goal;
+        }
+        else
+        {   
+            global_goal_pose = new_global_goal;
+        }
+    }
+
 
 
 }

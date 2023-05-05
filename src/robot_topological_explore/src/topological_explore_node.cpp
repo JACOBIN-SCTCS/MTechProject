@@ -70,14 +70,14 @@ public:
       BT::NodeStatus tick() override
       {
         // std::cout << "PathFinderBTNode: " << this->name() << std::endl;
-        auto current_goal = node_->costmap_client.getGlobalGoalPose();
+        // auto current_goal = node_->costmap_client.getGlobalGoalPose();
 
-        geometry_msgs::msg::Point current_goal_point;
-        current_goal_point.x = current_goal.x;
-        current_goal_point.y = current_goal.y;
-        node_->visualize_positions({current_goal_point, node_->robot.global_start_point});
-        // node_->robot.get_exploration_path();
-        // node_->visualize_path(node_->robot.current_path);
+        // geometry_msgs::msg::Point current_goal_point;
+        // current_goal_point.x = current_goal.x;
+        // current_goal_point.y = current_goal.y;
+        // node_->visualize_positions({current_goal_point, node_->robot.global_start_point});
+        node_->robot.get_exploration_path();
+        node_->visualize_path(node_->robot.current_path);
         return BT::NodeStatus::SUCCESS;
       }
 
@@ -87,7 +87,7 @@ public:
   class PathFollowerBTNode : public BT::StatefulActionNode
   {
     public:
-      PathFollowerBTNode(const std::string& name, const BT::NodeConfiguration& config,TopologicalExploreNode *node): BT::StatefulActionNode(name,config), node_(node)
+      PathFollowerBTNode(const std::string& name, const BT::NodeConfiguration& config,TopologicalExploreNode *node, rclcpp::Node::SharedPtr node_ptr): BT::StatefulActionNode(name,config), node_(node) , node_ptr_(node_ptr)
       {
         
       }
@@ -111,6 +111,36 @@ public:
 
       void path_feedback_callback(GoalHandleFollowWaypoints::SharedPtr ,const std::shared_ptr<const nav2_msgs::action::FollowWaypoints::Feedback> feedback)
       {
+        auto new_global_goal_pose = node_->costmap_client.getGlobalGoalPose();
+        node_->visualize_positions({node_->robot.global_goal_pose});
+        geometry_msgs::msg::Point new_global_goal_pose_point;
+        new_global_goal_pose_point.x = new_global_goal_pose.x;
+        new_global_goal_pose_point.y = new_global_goal_pose.y;
+        RCLCPP_INFO(node_->get_logger(),"New Pose = (%lf,%lf), old pose = (%lf,%lf)",new_global_goal_pose_point.x,new_global_goal_pose_point.y,node_->robot.global_goal_pose.x,node_->robot.global_goal_pose.y);
+        if (node_->robot.get_absolute_distance(new_global_goal_pose_point,node_->robot.global_goal_pose)>=0.8)
+        {
+          RCLCPP_INFO(node_->get_logger(), "New global goal pose received");
+          node_->robot.set_global_goal_pose(new_global_goal_pose_point);
+          path_following_failed = true;
+
+          //future_goal_handle_->async_cancel_goal
+          auto cancel_navigation = node_->navigation_client_->async_cancel_all_goals();
+          // if (rclcpp::spin_until_future_complete(node_ptr_, cancel_navigation) ==rclcpp::FutureReturnCode::SUCCESS)
+          // {
+          //   // RCLCPP_ERROR(node->get_logger(), "failed to cancel goal");
+          //   // rclcpp::shutdown();
+          //   // return 1;
+          //   RCLCPP_INFO(node_->get_logger(),"Goal has been cancelled by server");
+          // }
+          // else
+          // {
+          //   RCLCPP_INFO(node_->get_logger(),"Goal Not cancelled by server");
+          // }
+          
+          //node_->robot.get_exploration_path();
+          //node_->visualize_path(node_->robot.current_path);
+        }
+
         current_waypoint = feedback->current_waypoint;
         std::stringstream ss;
         ss <<  "Current Pose : " << current_waypoint;
@@ -150,6 +180,8 @@ public:
       }
 
       TopologicalExploreNode *node_;
+      rclcpp::Node::SharedPtr node_ptr_;
+      std::shared_future<GoalHandleFollowWaypoints::SharedPtr> future_goal_handle_;
       bool goal_succeeded = false;
       bool path_following_failed = false;
       int current_waypoint;
@@ -182,7 +214,7 @@ public:
     
     auto pathfollower_builder = [&](const std::string &name, const BT::NodeConfiguration &config)
     {
-      return std::make_unique<PathFollowerBTNode>(name, config, this);
+      return std::make_unique<PathFollowerBTNode>(name, config, this,shared_from_this());
     };
 
     bt_factory.registerBuilder<ObstacleFinderBTNode>("ObstacleFinderBTNode", obstacle_builder);
@@ -327,7 +359,7 @@ public:
         goal_options.result_callback =
           std::bind(&PathFollowerBTNode::path_result_callback, this, std::placeholders::_1);
      
-        node_->navigation_client_->async_send_goal(goal_msg, goal_options);
+        future_goal_handle_ = node_->navigation_client_->async_send_goal(goal_msg, goal_options);
         return BT::NodeStatus::RUNNING;
   }
 
