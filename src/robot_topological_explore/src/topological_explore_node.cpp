@@ -70,14 +70,14 @@ public:
       BT::NodeStatus tick() override
       {
         // std::cout << "PathFinderBTNode: " << this->name() << std::endl;
-        auto current_goal = node_->costmap_client.getChangedGlobalGoalPose(node_->robot.global_goal_pose);
+        // auto current_goal = node_->costmap_client.getChangedGlobalGoalPose(node_->robot.global_goal_pose);
 
-        geometry_msgs::msg::Point current_goal_point;
-        current_goal_point.x = current_goal.x;
-        current_goal_point.y = current_goal.y;
-        node_->visualize_positions({current_goal_point, node_->robot.global_start_point});
-        // node_->robot.get_exploration_path();
-        // node_->visualize_path(node_->robot.current_path);
+        // geometry_msgs::msg::Point current_goal_point;
+        // current_goal_point.x = current_goal.x;
+        // current_goal_point.y = current_goal.y;
+        // node_->visualize_positions({current_goal_point, node_->robot.global_start_point});
+        node_->robot.get_exploration_path();
+        node_->visualize_path(node_->robot.current_path);
         return BT::NodeStatus::SUCCESS;
       }
 
@@ -111,40 +111,37 @@ public:
 
       void path_feedback_callback(GoalHandleFollowWaypoints::SharedPtr ,const std::shared_ptr<const nav2_msgs::action::FollowWaypoints::Feedback> feedback)
       {
-        auto new_global_goal_pose = node_->costmap_client.getGlobalGoalPose();
-        node_->visualize_positions({node_->robot.global_goal_pose});
+        geometry_msgs::msg::Point prev_goal_pose;
+        prev_goal_pose.x = node_->robot.global_goal_pose.x;
+        prev_goal_pose.y = node_->robot.global_goal_pose.y;
+        prev_goal_pose.z = node_->robot.global_goal_pose.z;
+  
+        // auto new_global_goal_pose = node_->costmap_client.getGlobalGoalPose();
+        auto new_global_goal_pose = node_->costmap_client.getChangedGlobalGoalPose(node_->robot.global_goal_pose);
         geometry_msgs::msg::Point new_global_goal_pose_point;
         new_global_goal_pose_point.x = new_global_goal_pose.x;
         new_global_goal_pose_point.y = new_global_goal_pose.y;
-        RCLCPP_INFO(node_->get_logger(),"New Pose = (%lf,%lf), old pose = (%lf,%lf)",new_global_goal_pose_point.x,new_global_goal_pose_point.y,node_->robot.global_goal_pose.x,node_->robot.global_goal_pose.y);
-        if ((node_->robot.get_absolute_distance(new_global_goal_pose_point,node_->robot.global_goal_pose)>=3.0))
+
+        // node_->visualize_positions({node_->robot.global_goal_pose});
+        // RCLCPP_INFO(node_->get_logger(),"New Pose = (%lf,%lf), old pose = (%lf,%lf)",new_global_goal_pose_point.x,new_global_goal_pose_point.y,node_->robot.global_goal_pose.x,node_->robot.global_goal_pose.y);
+        
+        if (sqrt( (new_global_goal_pose.x-prev_goal_pose.x)*(new_global_goal_pose.x-prev_goal_pose.x) + (new_global_goal_pose.y-prev_goal_pose.y)*(new_global_goal_pose.y-prev_goal_pose.y)) >= 0.1)
         {
           RCLCPP_INFO(node_->get_logger(), "New global goal pose received");
           node_->robot.set_global_goal_pose(new_global_goal_pose_point);
           path_following_failed = true;
 
-          //future_goal_handle_->async_cancel_goal
           auto cancel_navigation = node_->navigation_client_->async_cancel_all_goals();
-          // if (rclcpp::spin_until_future_complete(node_ptr_, cancel_navigation) ==rclcpp::FutureReturnCode::SUCCESS)
-          // {
-          //   // RCLCPP_ERROR(node->get_logger(), "failed to cancel goal");
-          //   // rclcpp::shutdown();
-          //   // return 1;
-          //   RCLCPP_INFO(node_->get_logger(),"Goal has been cancelled by server");
-          // }
-          // else
-          // {
-          //   RCLCPP_INFO(node_->get_logger(),"Goal Not cancelled by server");
-          // }
-          
-          //node_->robot.get_exploration_path();
-          //node_->visualize_path(node_->robot.current_path);
+          return;
         }
+        else
+        {
+          current_waypoint = feedback->current_waypoint;
+          std::stringstream ss;
+          ss <<  "Current Pose : " << current_waypoint;
+          RCLCPP_INFO(node_->get_logger(), ss.str().c_str());
 
-        current_waypoint = feedback->current_waypoint;
-        std::stringstream ss;
-        ss <<  "Current Pose : " << current_waypoint;
-        RCLCPP_INFO(node_->get_logger(), ss.str().c_str());
+        }
       }
 
       void path_result_callback(const GoalHandleFollowWaypoints::WrappedResult &result)
@@ -335,6 +332,9 @@ public:
 };
   BT::NodeStatus TopologicalExploreNode::PathFollowerBTNode::onStart()
   {
+        goal_succeeded = false;
+        path_following_failed = false;
+
         if(!node_->navigation_client_->wait_for_action_server())
         {
           RCLCPP_INFO(node_->get_logger(),"Waiting for navigation action server");
@@ -349,7 +349,7 @@ public:
           pose.pose.orientation.w = 1.0;
           goal_msg.poses.push_back(pose);
 
-          RCLCPP_INFO(node_->get_logger(),"( %f, %f )" , pose.pose.position.x, pose.pose.position.y);
+          // RCLCPP_INFO(node_->get_logger(),"( %f, %f )" , pose.pose.position.x, pose.pose.position.y);
         }
         auto goal_options = rclcpp_action::Client<nav2_msgs::action::FollowWaypoints>::SendGoalOptions();
        
