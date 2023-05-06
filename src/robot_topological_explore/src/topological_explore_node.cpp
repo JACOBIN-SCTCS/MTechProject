@@ -70,14 +70,14 @@ public:
       BT::NodeStatus tick() override
       {
         // std::cout << "PathFinderBTNode: " << this->name() << std::endl;
-        // auto current_goal = node_->costmap_client.getGlobalGoalPose();
+        auto current_goal = node_->costmap_client.getChangedGlobalGoalPose(node_->robot.global_goal_pose);
 
-        // geometry_msgs::msg::Point current_goal_point;
-        // current_goal_point.x = current_goal.x;
-        // current_goal_point.y = current_goal.y;
-        // node_->visualize_positions({current_goal_point, node_->robot.global_start_point});
-        node_->robot.get_exploration_path();
-        node_->visualize_path(node_->robot.current_path);
+        geometry_msgs::msg::Point current_goal_point;
+        current_goal_point.x = current_goal.x;
+        current_goal_point.y = current_goal.y;
+        node_->visualize_positions({current_goal_point, node_->robot.global_start_point});
+        // node_->robot.get_exploration_path();
+        // node_->visualize_path(node_->robot.current_path);
         return BT::NodeStatus::SUCCESS;
       }
 
@@ -117,7 +117,7 @@ public:
         new_global_goal_pose_point.x = new_global_goal_pose.x;
         new_global_goal_pose_point.y = new_global_goal_pose.y;
         RCLCPP_INFO(node_->get_logger(),"New Pose = (%lf,%lf), old pose = (%lf,%lf)",new_global_goal_pose_point.x,new_global_goal_pose_point.y,node_->robot.global_goal_pose.x,node_->robot.global_goal_pose.y);
-        if (node_->robot.get_absolute_distance(new_global_goal_pose_point,node_->robot.global_goal_pose)>=0.8)
+        if ((node_->robot.get_absolute_distance(new_global_goal_pose_point,node_->robot.global_goal_pose)>=3.0))
         {
           RCLCPP_INFO(node_->get_logger(), "New global goal pose received");
           node_->robot.set_global_goal_pose(new_global_goal_pose_point);

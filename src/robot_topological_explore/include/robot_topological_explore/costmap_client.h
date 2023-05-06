@@ -40,6 +40,7 @@ namespace robot_topological_explore
             nav2_costmap_2d::Costmap2D* getCostmap();
             geometry_msgs::msg::PoseStamped getRobotPose() const;
             WorldCoord getGlobalGoalPose();
+            WorldCoord getChangedGlobalGoalPose(geometry_msgs::msg::Point current_global_goal);
             WorldCoord convert_index_to_world(unsigned int index);
             void updateObstacles();
             
@@ -51,7 +52,7 @@ namespace robot_topological_explore
         //protected:
             void costmapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
             void costmapUpdateCallback(const map_msgs::msg::OccupancyGridUpdate::SharedPtr msg);
-            std::vector<unsigned int> getNeighbors(unsigned int index);
+            std::vector<unsigned int> getNeighbors(unsigned int index,unsigned int x_size,unsigned int y_size);
            
             const tf2_ros::Buffer* const tf_; 
             rclcpp::Node& node_; 

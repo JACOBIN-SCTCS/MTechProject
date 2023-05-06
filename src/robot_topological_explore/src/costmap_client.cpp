@@ -236,6 +236,96 @@ namespace robot_topological_explore
        
     }
 
+    robot_topological_explore::WorldCoord robot_topological_explore::Costmap2DClient::getChangedGlobalGoalPose(geometry_msgs::msg::Point current_global_goal)
+    {
+        auto* mutex = costmap_.getMutex();
+        std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(*mutex);
+        map_width = costmap_.getSizeInCellsX();
+        map_height = costmap_.getSizeInCellsY();
+        size_t costmap_size =map_width * map_height;
+        
+        unsigned int map_bound_x, map_bound_y;
+        double world_bound_x , world_bound_y;
+        costmap_.indexToCells(costmap_size-1,map_bound_x,map_bound_y);
+        costmap_.mapToWorld(map_bound_x,map_bound_y,world_bound_x,world_bound_y);
+        geometry_msgs::msg::Point new_bound_point;
+        new_bound_point.x = world_bound_x;
+        new_bound_point.y = world_bound_y;
+     
+        if(sqrt(((new_bound_point.x-current_global_goal.x)* (new_bound_point.x-current_global_goal.x)) + ((new_bound_point.y-current_global_goal.y)* (new_bound_point.y-current_global_goal.y))) <= 0.1)
+        {
+            new_bound_point = current_global_goal;
+        }
+        
+        
+        costmap_.worldToMap(new_bound_point.x,new_bound_point.y,map_bound_x,map_bound_y);
+        unsigned int new_index = costmap_.getIndex(map_bound_x,map_bound_y);
+
+        unsigned char* costmap_data = costmap_.getCharMap();
+        if(costmap_data[new_index] == 255 || !(costmap_data[new_index] == 254 || costmap_data[new_index] == 253))
+        {
+            unsigned int mx , my;
+            double wx , wy ;
+            costmap_.indexToCells(new_index, mx, my);
+            costmap_.mapToWorld(mx, my, wx, wy);
+            RCLCPP_INFO(node_.get_logger(),"Unknown and not obstacleCostmap value = %u",costmap_data[new_index]);
+            return {wx,wy};
+        }
+
+
+        std::vector<bool> visited_array;
+        for(unsigned int i=0;i<costmap_size;++i)
+            visited_array.push_back(false);
+ 
+        
+   
+        unsigned int mx , my;
+        double wx , wy ;
+
+        std::queue<unsigned int> queue;
+        queue.push(new_index);
+        visited_array[new_index] = true;
+        while(!queue.empty())
+        {
+            unsigned int index = queue.front();
+            queue.pop();
+            if(!(costmap_data[index]>= 50))
+            {
+                costmap_.indexToCells(index, mx, my);
+                costmap_.mapToWorld(mx, my, wx, wy);
+                RCLCPP_INFO(node_.get_logger(), "Map size = %lu , Index = %u ;Global Goal Pose: x=%f, y=%f",costmap_size,index ,wx, wy);
+                return {wx,wy};
+            }
+            else
+            {
+                if(index%map_width != 0  && !visited_array[index-1])
+                {
+                    queue.push(index-1);
+                    visited_array[index-1] = true;
+                }
+                if(index%map_width != map_width-1 && (index+1) < costmap_size && !visited_array[index+1])
+                {
+                    queue.push(index+1);
+                    visited_array[index+1] = true;
+                }
+                if(index/map_width != 0 &&  !visited_array[index-map_width])
+                {
+                    queue.push(index-map_width);
+                    visited_array[index-map_width] = true;
+                }
+                if(index/map_width != map_height-1 && (index+map_width) < costmap_size &&!visited_array[index+map_width])
+                {
+                    queue.push(index+map_width);
+                    visited_array[index+map_width] = true;
+                }
+                    
+            }
+        }
+        costmap_.indexToCells(new_index, mx, my);
+        costmap_.mapToWorld(mx, my, wx, wy);
+        return {wx,wy};
+    }
+
     nav2_costmap_2d::Costmap2D* robot_topological_explore::Costmap2DClient::getCostmap()
     {
         while(!costmap_received)
@@ -275,16 +365,14 @@ namespace robot_topological_explore
         costmap_.mapToWorld(mx, my, wx, wy);
         return {wx, wy};
     }
-    std::vector<unsigned int> robot_topological_explore::Costmap2DClient::getNeighbors(unsigned int index)
+    std::vector<unsigned int> robot_topological_explore::Costmap2DClient::getNeighbors(unsigned int index,unsigned int x_size,unsigned int y_size)
     {
         std::vector<unsigned int> neighbors;
-        unsigned int x_size = costmap_.getSizeInCellsX();
-        unsigned int y_size = costmap_.getSizeInCellsY();
         if (index > x_size * y_size - 1)
         {
-            RCLCPP_INFO(rclcpp::get_logger("FrontierExploration"), "Evaluating nhood "
+            RCLCPP_INFO(rclcpp::get_logger("robot_topological_explore"), "Evaluating nhood "
                                                                    "for offmap point");
-            return neighbors;
+            return {};
         }
 
         if (index % x_size > 0)
@@ -356,10 +444,11 @@ namespace robot_topological_explore
                 if(visited[current_node] == true)
                     continue;
                 visited[current_node] = true;
-                std::vector<unsigned int> neighbors = getNeighbors(current_node);
+                std::vector<unsigned int> neighbors = getNeighbors(current_node,size_x,size_y);
                 for(unsigned int j=0;j<neighbors.size();++j)
                 {
                     if(costmap_data[neighbors[j]]==253 || costmap_data[neighbors[j]]==254)
+                    // if(costmap_data[neighbors[j]]>=250)
                     {
                         stack.push(neighbors[j]);
                         unsigned int px,py;
