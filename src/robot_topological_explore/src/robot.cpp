@@ -151,7 +151,7 @@ namespace robot_topological_explore
                     current_point.y = current_point_y;
                     if(path.size() > 0)
                     {
-                        if( (get_absolute_distance(current_point,path[path.size()-1]) >= 0.5)&& (get_absolute_distance(current_point,current_pose)>=0.5))
+                        if( (get_absolute_distance(current_point,path[path.size()-1]) >= 0.5) || (current_point.x==current_pose.x && current_point.y == current_pose.y))
                             path.push_back(current_point);
                     }
                     else
@@ -219,28 +219,28 @@ namespace robot_topological_explore
         // Adopt either Frontier Based Exploration or Topological Exploration here
         current_pose = _costmap_client->getRobotPose().pose.position;
 
-        if(get_absolute_distance(current_pose,goal_pose) <= 0.001)
-        {
-            if(goal_pose.x == global_goal_pose.x && goal_pose.y == global_goal_pose.y)
-            {
-                goal_pose = global_start_point;
-                start_point = current_pose;
-            }
-            else
-            {
-                goal_pose = global_goal_pose;
-                start_point = current_pose;
-                std::reverse(current_path.begin(),current_path.end());
-            }   
-            std::vector<geometry_msgs::msg::Point> current_path_copy;
+        // if(get_absolute_distance(current_pose,goal_pose) <= 0.1)
+        // {
+        //     if(goal_pose.x == global_goal_pose.x && goal_pose.y == global_goal_pose.y)
+        //     {
+        //         goal_pose = global_start_point;
+        //         start_point = current_pose;
+        //     }
+        //     else
+        //     {
+        //         goal_pose = global_goal_pose;
+        //         start_point = current_pose;
+        //         std::reverse(current_path.begin(),current_path.end());
+        //     }   
+        //     std::vector<geometry_msgs::msg::Point> current_path_copy;
             
-            for(long unsigned int i=0;i<current_path.size();++i)
-                current_path_copy.push_back(current_path[i]);
+        //     for(long unsigned int i=0;i<current_path.size();++i)
+        //         current_path_copy.push_back(current_path[i]);
                
-            traversed_paths.push_back(current_path_copy);
-            current_path.clear();
-            current_path_index = 0;
-        }
+        //     traversed_paths.push_back(current_path_copy);
+        //     current_path.clear();
+        //     current_path_index = 0;
+        // }
 
         auto obstacles = _costmap_client->obstacles_;
         Eigen::VectorXcd obstacle_points = Eigen::VectorXcd::Zero(obstacles.size());
@@ -258,12 +258,13 @@ namespace robot_topological_explore
             }
             obstacle_points(i) = std::complex<double>(current_obstacle_x,current_obstacle_y);
         }
+        // RCLCPP_INFO(node_.get_logger(), "Completed getting new obstacle points");
 
         traversed_h_signatures.clear();
         for(long unsigned int i=0;i<traversed_paths.size();i++)
         {
             Eigen::VectorXd h_signature = Eigen::VectorXd::Zero(obstacles.size()); 
-            for(long unsigned int j=1;j<traversed_paths[i].size();++i)
+            for(long unsigned int j=1;j<traversed_paths[i].size();++j)
             {
                 unsigned int sx,sy,gx,gy;
                 try
@@ -283,7 +284,7 @@ namespace robot_topological_explore
             }
             traversed_h_signatures.push_back(h_signature);
         }
-        // RCLCPP_INFO(node_.get_logger(), "Completed computing h signatures traversed");
+        RCLCPP_INFO(node_.get_logger(), "Completed computing h signatures traversed");
         partial_h_signature = Eigen::VectorXd::Zero(obstacles.size());
         
         for(long i=1; i <= current_path_index;++i)
@@ -305,7 +306,7 @@ namespace robot_topological_explore
             partial_h_signature += temp;
         }
         
-        // RCLCPP_INFO(node_.get_logger(), "partial_h_signature: %f", partial_h_signature.norm());
+        RCLCPP_INFO(node_.get_logger(), "partial_h_signature: %f", partial_h_signature.norm());
         // RCLCPP_INFO(node_.get_logger(), "Computed Path");
         get_non_homologous_path(current_pose,obstacle_points);
     }
@@ -323,6 +324,57 @@ namespace robot_topological_explore
         }
     }
 
+    void Robot::current_goal_succeeded()
+    {
+        geometry_msgs::msg::Point to_add_source;
+        geometry_msgs::msg::Point to_add_goal;
 
+        if(goal_pose.x == global_goal_pose.x && goal_pose.y == global_goal_pose.y)
+        {
+                to_add_source.x = start_point.x;
+                to_add_source.y = start_point.y;
+                to_add_source.z = start_point.z;
+
+                to_add_goal.x = goal_pose.x;
+                to_add_goal.y = goal_pose.y;
+                to_add_goal.z = goal_pose.z;
+                current_path.push_back(to_add_goal);
+                current_path.insert(current_path.begin(), to_add_source);
+
+                goal_pose = global_start_point;
+                start_point = global_goal_pose;
+        }
+        else
+        {
+                to_add_source.x = start_point.x;
+                to_add_source.y = start_point.y;
+                to_add_source.z = start_point.z;
+
+                to_add_goal.x = goal_pose.x;
+                to_add_goal.y = goal_pose.y;
+                to_add_goal.z = goal_pose.z;
+
+                current_path.push_back(to_add_goal);
+                current_path.insert(current_path.begin(), to_add_source);         
+                goal_pose = global_goal_pose;
+                start_point = global_start_point;
+                std::reverse(current_path.begin(),current_path.end());
+        }   
+
+        std::vector<geometry_msgs::msg::Point> current_path_copy;
+            
+        for(long unsigned int i=0;i<current_path.size();++i)
+            current_path_copy.push_back(current_path[i]);
+               
+        traversed_paths.push_back(current_path_copy);
+        current_path.clear();
+        current_path_index = 0;
+        
+        RCLCPP_INFO(node_.get_logger(),"Current Path");
+        for(unsigned int i = 0 ; i< current_path_copy.size();++i)
+        {
+            RCLCPP_INFO(node_.get_logger(),"(%lf,%lf)",current_path_copy[i].x,current_path_copy[i].y);
+        }
+    }
 
 }

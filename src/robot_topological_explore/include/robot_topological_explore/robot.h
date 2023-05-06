@@ -49,6 +49,7 @@ namespace robot_topological_explore
             double get_absolute_distance(geometry_msgs::msg::Point pose1, geometry_msgs::msg::Point pose2);
             void get_non_homologous_path(geometry_msgs::msg::Point current_pose,Eigen::VectorXcd obstacle_coords);
             void set_global_goal_pose(geometry_msgs::msg::Point new_global_goal);
+            void current_goal_succeeded();
 
             rclcpp::Node& node_;
 

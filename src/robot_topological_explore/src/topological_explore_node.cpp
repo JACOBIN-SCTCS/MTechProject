@@ -136,11 +136,22 @@ public:
         }
         else
         {
-          current_waypoint = feedback->current_waypoint;
+          auto curr_waypoint = feedback->current_waypoint;
+          if(current_waypoint != (int)curr_waypoint)
+          {
+            if(curr_waypoint==0)
+            {
+              ;
+            }
+            else
+            {
+              node_->robot.current_path_index+=1;
+            }
+            current_waypoint = curr_waypoint;
+          }
           std::stringstream ss;
           ss <<  "Current Pose : " << current_waypoint;
           RCLCPP_INFO(node_->get_logger(), ss.str().c_str());
-
         }
       }
 
@@ -150,7 +161,7 @@ public:
         {
           case rclcpp_action::ResultCode::SUCCEEDED:
           {
-            RCLCPP_INFO(node_->get_logger(), "Waypoint following succeeded!"); 
+            RCLCPP_INFO(node_->get_logger(), "Waypoint following succeeded!");
             goal_succeeded = true;
             return;
           }
@@ -181,7 +192,7 @@ public:
       std::shared_future<GoalHandleFollowWaypoints::SharedPtr> future_goal_handle_;
       bool goal_succeeded = false;
       bool path_following_failed = false;
-      int current_waypoint;
+      int current_waypoint=-1;
   };
 
 
@@ -334,6 +345,7 @@ public:
   {
         goal_succeeded = false;
         path_following_failed = false;
+        current_waypoint = 0;
 
         if(!node_->navigation_client_->wait_for_action_server())
         {
@@ -367,6 +379,7 @@ public:
   {
     if(goal_succeeded)
     {
+      node_->robot.current_goal_succeeded(); 
       return BT::NodeStatus::SUCCESS;
     }
     else if(path_following_failed)
