@@ -8,10 +8,21 @@
 
 #include <ompl/base/SpaceInformation.h>
 #include <ompl/base/spaces/SE3StateSpace.h>
-#include <ompl/config.h>
+#include <ompl/base/samplers/ObstacleBasedValidStateSampler.h>
+#include <ompl/base/samplers/GaussianValidStateSampler.h>
+#include <ompl/base/samplers/MaximizeClearanceValidStateSampler.h>
+
+#include <ompl/geometric/planners/prm/PRM.h>
+#include <ompl/geometric/planners/rrt/RRTConnect.h>
+#include <ompl/geometric/planners/prm/PRMstar.h>
+#include <ompl/geometric/SimpleSetup.h>
 #include <ompl/base/spaces/DiscreteStateSpace.h>
 #include <ompl/geometric/PathGeometric.h>
 #include <ompl/base/PlannerTerminationCondition.h>
+#include <boost/graph/adjacency_list.hpp>
+#include <ompl/geometric/planners/prm/SPARS.h>
+#include <ompl/geometric/planners/prm/SPARStwo.h>
+
 #include <iostream>
 #include <thread>
 #include <vector>
@@ -22,6 +33,26 @@
 
 namespace robot_topological_explore
 {
+    class myStateValidityCheckerClass : public ompl::base::StateValidityChecker
+    {
+    public:
+        std::vector<std::vector<unsigned char>> grid_data;
+
+        myStateValidityCheckerClass(const ompl::base::SpaceInformationPtr &si, std::vector<std::vector<unsigned char>> &g) :
+        ompl::base::StateValidityChecker(si), grid_data(g)
+            {
+        }
+    
+        virtual bool isValid(const ompl::base::State *state) const
+        {
+            unsigned int x  = state->as<ompl::base::CompoundState>()->as<ompl::base::DiscreteStateSpace::StateType>(0)->value;
+            unsigned int y = state->as<ompl::base::CompoundState>()->as<ompl::base::DiscreteStateSpace::StateType>(1)->value;
+            if(grid_data[x][y]==253 || grid_data[x][y] == 254)
+                return false;
+            return true;
+        }
+    };
+
     struct AstarNode
     {
         std::complex<double> point;
@@ -58,7 +89,6 @@ namespace robot_topological_explore
             void get_non_homologous_path(geometry_msgs::msg::Point current_pose,Eigen::VectorXcd obstacle_coords);
             void set_global_goal_pose(geometry_msgs::msg::Point new_global_goal);
             void current_goal_succeeded();
-            bool isGridStateValid(ompl::base::State *state);
 
             rclcpp::Node& node_;
 

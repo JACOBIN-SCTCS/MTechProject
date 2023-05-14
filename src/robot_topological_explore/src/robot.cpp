@@ -307,6 +307,13 @@ namespace robot_topological_explore
 
         // Insert PRM from here
 
+        ompl::base::StateSpacePtr dim1(new ompl::base::DiscreteStateSpace(0,temp_grid_width-1));
+        ompl::base::StateSpacePtr dim2(new ompl::base::DiscreteStateSpace(0,temp_grid_height-1));
+        ompl::base::StateSpacePtr space = dim1 + dim2;
+        auto si(std::make_shared<ompl::base::SpaceInformation>(space));
+        si -> setStateValidityChecker(std::make_shared<robot_topological_explore::myStateValidityCheckerClass>(si,temp_grid_data));
+
+        //PRM code ends here
 
         unsigned int map_size_x = _costmap_client->costmap_.getSizeInCellsX();
         unsigned int map_size_y = _costmap_client->costmap_.getSizeInCellsY();
@@ -522,16 +529,6 @@ namespace robot_topological_explore
         {
             RCLCPP_INFO(node_.get_logger(),"(%lf,%lf)",current_path_copy[i].x,current_path_copy[i].y);
         }
-    }
-
-    bool Robot::isGridStateValid(ompl::base::State *state)
-    {
-        unsigned int x = state->as<ompl::base::CompoundState>()->as<ompl::base::DiscreteStateSpace::StateType>(0)->value;
-        unsigned int y = state->as<ompl::base::CompoundState>()->as<ompl::base::DiscreteStateSpace::StateType>(1)->value;
-
-        if(grid_data[x][y]==253 ||grid_data[x][y]==254 )
-            return false;
-        return true;
     }
 
 }

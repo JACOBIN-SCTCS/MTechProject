@@ -27,6 +27,9 @@ find_package(ompl REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
+include_directories(/usr/local/include/ompl-1.6)
+link_directories(/usr/local/lib)
+
 add_executable(robot_topological_explore src/topological_explore_node.cpp src/costmap_client.cpp src/robot.cpp)
 ament_target_dependencies(robot_topological_explore rclcpp nav_msgs nav2_msgs rclcpp_action tf2_ros nav2_costmap_2d tf2_geometry_msgs map_msgs visualization_msgs std_msgs builtin_interfaces behaviortree_cpp_v3)
 target_link_libraries(robot_topological_explore Eigen3::Eigen ompl)
