@@ -11,7 +11,7 @@
 #include <ompl/base/samplers/ObstacleBasedValidStateSampler.h>
 #include <ompl/base/samplers/GaussianValidStateSampler.h>
 #include <ompl/base/samplers/MaximizeClearanceValidStateSampler.h>
-
+#include <ompl/base/terminationconditions/IterationTerminationCondition.h>
 #include <ompl/geometric/planners/prm/PRM.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
 #include <ompl/geometric/planners/prm/PRMstar.h>
@@ -33,28 +33,29 @@
 
 namespace robot_topological_explore
 {
-    class myStateValidityCheckerClass : public ompl::base::StateValidityChecker
+    class gridStateValidityCheckerClass : public ompl::base::StateValidityChecker
     {
-    public:
-        std::vector<std::vector<unsigned char>> grid_data;
+        public:
+            std::vector<std::vector<unsigned char>> grid_data;
 
-        myStateValidityCheckerClass(const ompl::base::SpaceInformationPtr &si, std::vector<std::vector<unsigned char>> &g) :
-        ompl::base::StateValidityChecker(si), grid_data(g)
+            gridStateValidityCheckerClass(const ompl::base::SpaceInformationPtr &si, std::vector<std::vector<unsigned char>> &g) :
+            ompl::base::StateValidityChecker(si), grid_data(g)
+                {
+            }
+        
+            virtual bool isValid(const ompl::base::State *state) const
             {
-        }
-    
-        virtual bool isValid(const ompl::base::State *state) const
-        {
-            unsigned int x  = state->as<ompl::base::CompoundState>()->as<ompl::base::DiscreteStateSpace::StateType>(0)->value;
-            unsigned int y = state->as<ompl::base::CompoundState>()->as<ompl::base::DiscreteStateSpace::StateType>(1)->value;
-            if(grid_data[x][y]==253 || grid_data[x][y] == 254)
-                return false;
-            return true;
-        }
+                unsigned int x  = state->as<ompl::base::CompoundState>()->as<ompl::base::DiscreteStateSpace::StateType>(0)->value;
+                unsigned int y = state->as<ompl::base::CompoundState>()->as<ompl::base::DiscreteStateSpace::StateType>(1)->value;
+                if(grid_data[x][y]==253 || grid_data[x][y] == 254)
+                    return false;
+                return true;
+            }
     };
 
     struct AstarNode
     {
+        unsigned int vertex_id;
         std::complex<double> point;
         Eigen::VectorXd h_signature;
         double f;
@@ -75,6 +76,15 @@ namespace robot_topological_explore
         double c,
         struct AstarNode* pa,
         std::vector<std::complex<double>> e) : point(p) , h_signature(h),cost(c),parent(pa) , edge(e) {}
+        
+        AstarNode(
+        unsigned int v,
+        std::complex<double> p,
+        Eigen::VectorXd h,
+        double f,
+        double g,
+        struct AstarNode* pa,
+        std::vector<std::complex<double>> e) : vertex_id(v) , point(p) , h_signature(h),f(f),g(g),parent(pa) , edge(e) {}
   
     };
 
@@ -87,6 +97,7 @@ namespace robot_topological_explore
             void goto_frontier();
             double get_absolute_distance(geometry_msgs::msg::Point pose1, geometry_msgs::msg::Point pose2);
             void get_non_homologous_path(geometry_msgs::msg::Point current_pose,Eigen::VectorXcd obstacle_coords);
+            void get_non_homologous_PRM(geometry_msgs::msg::Point current_pose,Eigen::VectorXcd obstacle_coords);
             void set_global_goal_pose(geometry_msgs::msg::Point new_global_goal);
             void current_goal_succeeded();
 

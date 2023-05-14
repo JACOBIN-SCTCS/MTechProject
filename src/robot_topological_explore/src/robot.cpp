@@ -216,7 +216,80 @@ namespace robot_topological_explore
 
     void Robot::get_exploration_path()
     {
-        // Adopt either Frontier Based Exploration or Topological Exploration here
+        // Adopt either Frontier Based Exploration or Topological Exploration here    
+        current_pose = _costmap_client->getRobotPose().pose.position;
+
+        auto obstacles = _costmap_client->obstacles_;
+        Eigen::VectorXcd obstacle_points = Eigen::VectorXcd::Zero(obstacles.size());
+        for(long unsigned int i=0;i<obstacles.size();i++)
+        {
+            unsigned int current_obstacle_x, current_obstacle_y;
+            try
+            {
+                _costmap_client->costmap_.worldToMap(obstacles[i].obstacle_pose.position.x,obstacles[i].obstacle_pose.position.y,current_obstacle_x,current_obstacle_y);
+            }
+            catch(const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+                exit(0);
+            }
+            obstacle_points(i) = std::complex<double>(current_obstacle_x,current_obstacle_y);
+        }
+        // RCLCPP_INFO(node_.get_logger(), "Completed getting new obstacle points");
+
+        traversed_h_signatures.clear();
+        for(long unsigned int i=0;i<traversed_paths.size();i++)
+        {
+            Eigen::VectorXd h_signature = Eigen::VectorXd::Zero(obstacles.size()); 
+            for(long unsigned int j=1;j<traversed_paths[i].size();++j)
+            {
+                unsigned int sx,sy,gx,gy;
+                try
+                {
+                    _costmap_client->costmap_.worldToMap(traversed_paths[i][j-1].x,traversed_paths[i][j-1].y,sx,sy);
+                    _costmap_client->costmap_.worldToMap(traversed_paths[i][j].x,traversed_paths[i][j].y,gx,gy);
+                }
+                catch(const std::exception& e)
+                {
+                    std::cerr << e.what() << '\n';
+                    exit(0);
+                }
+                Eigen::VectorXcd s_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(sx,sy)) - obstacle_points;
+                Eigen::VectorXcd e_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(gx,gy)) - obstacle_points;
+                Eigen::VectorXd temp = s_vec.array().binaryExpr(e_vec.array(),customOp);
+                h_signature += temp;
+            }
+            traversed_h_signatures.push_back(h_signature);
+        }
+        RCLCPP_INFO(node_.get_logger(), "Completed computing h signatures traversed");
+        partial_h_signature = Eigen::VectorXd::Zero(obstacles.size());
+        
+        for(long i=1; i <= current_path_index;++i)
+        {
+            unsigned int sx,sy,gx,gy;
+            try
+            {
+                _costmap_client->costmap_.worldToMap(current_path[i-1].x,current_path[i-1].y,sx,sy);
+                _costmap_client->costmap_.worldToMap(current_path[i].x,current_path[i].y,gx,gy);
+            }
+            catch(const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+                exit(0);
+            }
+            Eigen::VectorXcd s_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(sx,sy)) - obstacle_points;
+            Eigen::VectorXcd e_vec = Eigen::VectorXcd::Constant(obstacle_points.size(), std::complex<double>(gx,gy)) - obstacle_points;
+            Eigen::VectorXd temp = s_vec.array().binaryExpr(e_vec.array(),customOp);
+            partial_h_signature += temp;
+        }
+        
+        RCLCPP_INFO(node_.get_logger(), "partial_h_signature: %f", partial_h_signature.norm());
+        get_non_homologous_path(current_pose,obstacle_points);
+    }
+
+     void Robot::get_non_homologous_PRM(geometry_msgs::msg::Point current_pose,Eigen::VectorXcd obstacle_coords)
+    {
+           // Adopt either Frontier Based Exploration or Topological Exploration here
         std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(
           *(_costmap_client->costmap_.getMutex()));
         
@@ -305,15 +378,7 @@ namespace robot_topological_explore
         current_path.erase(current_path.begin()+current_path_index,current_path.end());
 
 
-        // Insert PRM from here
-
-        ompl::base::StateSpacePtr dim1(new ompl::base::DiscreteStateSpace(0,temp_grid_width-1));
-        ompl::base::StateSpacePtr dim2(new ompl::base::DiscreteStateSpace(0,temp_grid_height-1));
-        ompl::base::StateSpacePtr space = dim1 + dim2;
-        auto si(std::make_shared<ompl::base::SpaceInformation>(space));
-        si -> setStateValidityChecker(std::make_shared<robot_topological_explore::myStateValidityCheckerClass>(si,temp_grid_data));
-
-        //PRM code ends here
+       
 
         unsigned int map_size_x = _costmap_client->costmap_.getSizeInCellsX();
         unsigned int map_size_y = _costmap_client->costmap_.getSizeInCellsY();
@@ -322,9 +387,61 @@ namespace robot_topological_explore
         _costmap_client->costmap_.worldToMap(current_pose.x, current_pose.y, mx, my);
         _costmap_client->costmap_.worldToMap(goal_pose.x,goal_pose.y,gx,gy);
 
-   
+        // Insert PRM from here
 
+        ompl::base::StateSpacePtr dim1(new ompl::base::DiscreteStateSpace(0,temp_grid_width-1));
+        ompl::base::StateSpacePtr dim2(new ompl::base::DiscreteStateSpace(0,temp_grid_height-1));
+        ompl::base::StateSpacePtr space = dim1 + dim2;
+        auto si(std::make_shared<ompl::base::SpaceInformation>(space));
+        si -> setStateValidityChecker(std::make_shared<robot_topological_explore::gridStateValidityCheckerClass>(si,temp_grid_data));
 
+        ompl::base::ScopedState<ompl::base::CompoundStateSpace> start(space);
+        start->as<ompl::base::DiscreteStateSpace::StateType>(0)->value=mx;
+        start->as<ompl::base::DiscreteStateSpace::StateType>(1)->value=my;
+
+        ompl::base::ScopedState<ompl::base::CompoundStateSpace> goal(space);
+        goal->as<ompl::base::DiscreteStateSpace::StateType>(0)->value=gx;
+        goal->as<ompl::base::DiscreteStateSpace::StateType>(1)->value=gy;
+
+        auto pdef(std::make_shared<ompl::base::ProblemDefinition>(si));
+        pdef->setStartAndGoalStates(start,goal);
+
+        auto planner(std::make_shared<ompl::geometric::PRM>(si));
+        planner->setProblemDefinition(pdef);
+        planner->setup();
+
+        // planner->constructRoadmap(PlannerTerminationClass(NULL));
+        planner->constructRoadmap(ompl::base::IterationTerminationCondition(1000));
+        auto graph = planner->getRoadmap();
+        std::cout << "No of vertices before  = " << graph.m_vertices.size()<<std::endl;
+        // planner->constructRoadmap(ompl::base::CostConvergenceTerminationCondition(pdef));
+        // planner->setConnectionFilter(customConnectionFilter);
+        ompl::base::PlannerStatus solved = planner->ompl::base::Planner::solve(1.0);
+    
+
+        if(solved)
+        {
+            std::cout<<"Solved the problem"<<std::endl;
+            ompl::geometric::PathGeometric path( dynamic_cast< const ompl::geometric::PathGeometric& >( *pdef->getSolutionPath()));
+            for(unsigned int i=0;i<path.getStateCount();++i)
+            {
+                const ompl::base::State* state = path.getState(i);
+                auto coord1 = state->as<ompl::base::CompoundState>()->as<ompl::base::DiscreteStateSpace::StateType>(0)->value;
+                auto coord2 = state->as<ompl::base::CompoundState>()->as<ompl::base::DiscreteStateSpace::StateType>(1)->value;
+                std::cout<<"( " <<coord1 << "," << coord2 <<" )"<<std::endl; 
+            }
+            std::cout<<"Done printing path"<<std::endl;
+        }
+        else
+        {
+            std::cout<<"Couldnt find the path";
+        }
+        
+        graph = planner->getRoadmap();
+        std::cout << "No of vertices  after = " << graph.m_vertices.size()<<std::endl;
+       
+
+        //PRM code ends here
 
         std::complex<double> s_point(mx,my);
         std::complex<double> g_point(gx,gy);
@@ -359,9 +476,9 @@ namespace robot_topological_explore
             if(node->point == g_point)
             {         
                 Eigen::VectorXd filtered = (1.0/(2*M_PIf64))*node->h_signature;
-			    if((filtered.array()> 1.0).any() || (filtered.array() < -1.0).any())
-				    continue;
-			
+                if((filtered.array()> 1.0).any() || (filtered.array() < -1.0).any())
+                    continue;
+            
                 Eigen::VectorXcd final_signature = node-> h_signature;
                 double real_world_goal_x, real_world_goal_y;
                 _costmap_client->costmap_.mapToWorld((unsigned int)g_point.real(),(unsigned int)g_point.imag(),real_world_goal_x,real_world_goal_y);
@@ -440,9 +557,9 @@ namespace robot_topological_explore
                     Eigen::VectorXd t =   s_vec.array().binaryExpr(e_vec.array(),customOp);
                     Eigen::VectorXd temp =  node->h_signature + t;
                     Eigen::VectorXd filtered = (1.0/(2*M_PIf64))*temp;
-			        if((filtered.array()> 1.0).any() || (filtered.array() < -1.0).any())
-				        continue;
-			        double cell_cost = costmap_data[new_point_index];
+                    if((filtered.array()> 1.0).any() || (filtered.array() < -1.0).any())
+                        continue;
+                    double cell_cost = costmap_data[new_point_index];
                     if(cell_cost == nav2_costmap_2d::NO_INFORMATION)
                         cell_cost = 1.0;
                     double f = node->f + cell_cost;
@@ -478,6 +595,7 @@ namespace robot_topological_explore
         }
     }
 
+   
     void Robot::current_goal_succeeded()
     {
         geometry_msgs::msg::Point to_add_source;
