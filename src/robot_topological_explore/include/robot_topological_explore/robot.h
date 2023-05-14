@@ -6,6 +6,14 @@
 #endif
 
 
+#include <ompl/base/SpaceInformation.h>
+#include <ompl/base/spaces/SE3StateSpace.h>
+#include <ompl/config.h>
+#include <ompl/base/spaces/DiscreteStateSpace.h>
+#include <ompl/geometric/PathGeometric.h>
+#include <ompl/base/PlannerTerminationCondition.h>
+#include <iostream>
+#include <thread>
 #include <vector>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
@@ -50,6 +58,7 @@ namespace robot_topological_explore
             void get_non_homologous_path(geometry_msgs::msg::Point current_pose,Eigen::VectorXcd obstacle_coords);
             void set_global_goal_pose(geometry_msgs::msg::Point new_global_goal);
             void current_goal_succeeded();
+            bool isGridStateValid(ompl::base::State *state);
 
             rclcpp::Node& node_;
 
@@ -67,6 +76,8 @@ namespace robot_topological_explore
             Eigen::VectorXd partial_h_signature;
     
             robot_topological_explore::Costmap2DClient *_costmap_client;
+            std::vector<std::vector<unsigned char>> grid_data;
+            
 
     };
 }

@@ -217,30 +217,25 @@ namespace robot_topological_explore
     void Robot::get_exploration_path()
     {
         // Adopt either Frontier Based Exploration or Topological Exploration here
-        current_pose = _costmap_client->getRobotPose().pose.position;
+        std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(
+          *(_costmap_client->costmap_.getMutex()));
+        
+        
+        unsigned char* costmap_data = _costmap_client->costmap_.getCharMap();
+        unsigned int temp_grid_width = _costmap_client->costmap_.getSizeInCellsX();
+        unsigned int temp_grid_height = _costmap_client->costmap_.getSizeInCellsY();
+        
+        std::vector<std::vector<unsigned char>> temp_grid_data(temp_grid_width,std::vector<unsigned char>(temp_grid_height));
+        for(unsigned int i=0;i<temp_grid_width*temp_grid_height;++i)
+        {
+            unsigned int mx , my;
+            _costmap_client->costmap_.indexToCells(i,mx,my);
+            temp_grid_data[mx][my] = costmap_data[i];
+        }
+        grid_data = temp_grid_data;
 
-        // if(get_absolute_distance(current_pose,goal_pose) <= 0.1)
-        // {
-        //     if(goal_pose.x == global_goal_pose.x && goal_pose.y == global_goal_pose.y)
-        //     {
-        //         goal_pose = global_start_point;
-        //         start_point = current_pose;
-        //     }
-        //     else
-        //     {
-        //         goal_pose = global_goal_pose;
-        //         start_point = current_pose;
-        //         std::reverse(current_path.begin(),current_path.end());
-        //     }   
-        //     std::vector<geometry_msgs::msg::Point> current_path_copy;
-            
-        //     for(long unsigned int i=0;i<current_path.size();++i)
-        //         current_path_copy.push_back(current_path[i]);
-               
-        //     traversed_paths.push_back(current_path_copy);
-        //     current_path.clear();
-        //     current_path_index = 0;
-        // }
+        
+        current_pose = _costmap_client->getRobotPose().pose.position;
 
         auto obstacles = _costmap_client->obstacles_;
         Eigen::VectorXcd obstacle_points = Eigen::VectorXcd::Zero(obstacles.size());
@@ -307,8 +302,160 @@ namespace robot_topological_explore
         }
         
         RCLCPP_INFO(node_.get_logger(), "partial_h_signature: %f", partial_h_signature.norm());
-        // RCLCPP_INFO(node_.get_logger(), "Computed Path");
-        get_non_homologous_path(current_pose,obstacle_points);
+        current_path.erase(current_path.begin()+current_path_index,current_path.end());
+
+
+        // Insert PRM from here
+
+
+        unsigned int map_size_x = _costmap_client->costmap_.getSizeInCellsX();
+        unsigned int map_size_y = _costmap_client->costmap_.getSizeInCellsY();
+        unsigned int mx,my;
+        unsigned int gx,gy;
+        _costmap_client->costmap_.worldToMap(current_pose.x, current_pose.y, mx, my);
+        _costmap_client->costmap_.worldToMap(goal_pose.x,goal_pose.y,gx,gy);
+
+   
+
+
+
+        std::complex<double> s_point(mx,my);
+        std::complex<double> g_point(gx,gy);
+        
+        std::vector<std::complex<double>> directions = {
+            std::complex<double>(1.0,0.0),
+            std::complex<double>(0.0,1.0),
+            std::complex<double>(-1.0,0.0),
+            std::complex<double>(0.0,-1.0),
+            std::complex<double>(1.0,1.0),
+            std::complex<double>(-1.0,1.0),
+            std::complex<double>(1.0,-1.0),
+            std::complex<double>(-1.0,-1.0),
+        };
+
+        std::priority_queue<AstarNode*, std::vector<AstarNode*>, std::function<bool(AstarNode*, AstarNode*)>> pq([](AstarNode* a, AstarNode* b) { return (a->f + a->g) > (b->f + b->g); });
+        std::unordered_map<std::string,double> distance_count;
+        // std::set<std::string> visited;
+        std::stringstream ss;
+        ss << s_point << "-\n"<< partial_h_signature;
+        distance_count[ss.str()] = std::abs(g_point-s_point);
+        // RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : distance value = %lf",distance_count[ss.str()]);
+        AstarNode* start_node = new AstarNode(s_point,partial_h_signature,0,std::abs(g_point-s_point),NULL,{});
+        pq.push(start_node);
+        // RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : start_node pushed");
+        while(!pq.empty())
+        {
+            AstarNode* node = pq.top();
+            // RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : (%lf , %lf)",node->point.real(),node->point.imag());
+            pq.pop();
+
+            if(node->point == g_point)
+            {         
+                Eigen::VectorXd filtered = (1.0/(2*M_PIf64))*node->h_signature;
+			    if((filtered.array()> 1.0).any() || (filtered.array() < -1.0).any())
+				    continue;
+			
+                Eigen::VectorXcd final_signature = node-> h_signature;
+                double real_world_goal_x, real_world_goal_y;
+                _costmap_client->costmap_.mapToWorld((unsigned int)g_point.real(),(unsigned int)g_point.imag(),real_world_goal_x,real_world_goal_y);
+
+                if(real_world_goal_x==global_start_point.x && real_world_goal_y == global_start_point.y)
+                {
+                    final_signature = -final_signature;
+                }
+                // RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : Final Signature %lf",real(final_signature(0)));
+                bool is_already_seen = false;
+                
+                for(long unsigned int i=0;i< traversed_h_signatures.size();++i)
+                {
+                    auto difference = traversed_h_signatures[i]-final_signature;
+                    if (difference.isZero(0.0001))
+                    {
+                        is_already_seen = true;
+                        break;
+                    }
+                }
+                if(is_already_seen)
+                    continue;
+
+                std::vector<geometry_msgs::msg::Point> path;
+                AstarNode* temp = node;
+                while(temp!=NULL)
+                {
+                    // RCLCPP_INFO(node_.get_logger(),"(%f,%f)",temp->point.real(),temp->point.imag());
+                    double current_point_x , current_point_y;
+                    try
+                    {
+                        _costmap_client->costmap_.mapToWorld((unsigned int)temp->point.real(),(unsigned int)temp->point.imag(),current_point_x,current_point_y);
+                    }
+                    catch(const std::exception& e)
+                    {
+                        std::cerr << e.what() << '\n';
+                    }
+                    geometry_msgs::msg::Point current_point;
+                    current_point.x = current_point_x;
+                    current_point.y = current_point_y;
+                    if(path.size() > 0)
+                    {
+                        if( (get_absolute_distance(current_point,path[path.size()-1]) >= 0.5) || (current_point.x==current_pose.x && current_point.y == current_pose.y))
+                            path.push_back(current_point);
+                    }
+                    else
+                    {
+                        path.push_back(current_point);
+                    }
+                    temp = temp->parent;
+                }
+            
+
+                std::reverse(path.begin(),path.end());
+            
+                std::vector<geometry_msgs::msg::Point> new_path;
+                for(unsigned int j=0;j<current_path_index;++j)
+                    new_path.push_back(current_path[j]);
+                for(unsigned int j=0;j<path.size();++j)
+                    new_path.push_back(path[j]);
+
+                current_path = new_path;
+             
+                 break; 
+            }
+            else
+            {
+                for(unsigned int i=0;i<directions.size();++i)
+                {
+                    std::complex<double> new_point = node->point + directions[i];
+                    unsigned int new_point_index = _costmap_client->costmap_.getIndex((unsigned int)new_point.real(),(unsigned int)new_point.imag());
+                    if( ((long)real(new_point))<0 || ((long)real(new_point))>= map_size_x || ((long)imag(new_point))<0 || ((long)imag(new_point))>=map_size_y || (costmap_data[new_point_index] == nav2_costmap_2d::LETHAL_OBSTACLE || costmap_data[new_point_index] == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE))
+                        continue;
+                    Eigen::VectorXcd s_vec = Eigen::VectorXcd::Constant(obstacle_points.size(),node->point) - obstacle_points;
+                    Eigen::VectorXcd e_vec = Eigen::VectorXcd::Constant(obstacle_points.size(),new_point) - obstacle_points;
+                    Eigen::VectorXd t =   s_vec.array().binaryExpr(e_vec.array(),customOp);
+                    Eigen::VectorXd temp =  node->h_signature + t;
+                    Eigen::VectorXd filtered = (1.0/(2*M_PIf64))*temp;
+			        if((filtered.array()> 1.0).any() || (filtered.array() < -1.0).any())
+				        continue;
+			        double cell_cost = costmap_data[new_point_index];
+                    if(cell_cost == nav2_costmap_2d::NO_INFORMATION)
+                        cell_cost = 1.0;
+                    double f = node->f + cell_cost;
+                    double g = std::abs(new_point-g_point);
+
+                    // double c = node->cost + cell_cost + std::abs(new_point-goal_point);
+                    
+                    std::stringstream ss;
+                    ss << new_point << "-\n"<< temp;
+                    std::string key = ss.str();
+                    if(distance_count.find(key)==distance_count.end() || distance_count[key] > (f+g))
+                    {
+                        distance_count[key] = f + g ;
+                        std::vector<std::complex<double>> edge = { node->point,new_point}; 
+                        AstarNode* new_node = new AstarNode(new_point,temp,f,g,node,edge);
+                        pq.push(new_node);
+                    }
+                }
+            }
+        }
     }
     
     void Robot::set_global_goal_pose(geometry_msgs::msg::Point new_global_goal)
@@ -375,6 +522,16 @@ namespace robot_topological_explore
         {
             RCLCPP_INFO(node_.get_logger(),"(%lf,%lf)",current_path_copy[i].x,current_path_copy[i].y);
         }
+    }
+
+    bool Robot::isGridStateValid(ompl::base::State *state)
+    {
+        unsigned int x = state->as<ompl::base::CompoundState>()->as<ompl::base::DiscreteStateSpace::StateType>(0)->value;
+        unsigned int y = state->as<ompl::base::CompoundState>()->as<ompl::base::DiscreteStateSpace::StateType>(1)->value;
+
+        if(grid_data[x][y]==253 ||grid_data[x][y]==254 )
+            return false;
+        return true;
     }
 
 }
