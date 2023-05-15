@@ -287,9 +287,10 @@ namespace robot_topological_explore
         get_non_homologous_path(current_pose,obstacle_points);
     }
 
-     void Robot::get_non_homologous_PRM(geometry_msgs::msg::Point current_pose,Eigen::VectorXcd obstacle_coords)
+    void Robot::get_non_homologous_PRM()
     {
-           // Adopt either Frontier Based Exploration or Topological Exploration here
+        
+        // Adopt either Frontier Based Exploration or Topological Exploration here
         std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(
           *(_costmap_client->costmap_.getMutex()));
         
@@ -297,6 +298,9 @@ namespace robot_topological_explore
         unsigned char* costmap_data = _costmap_client->costmap_.getCharMap();
         unsigned int temp_grid_width = _costmap_client->costmap_.getSizeInCellsX();
         unsigned int temp_grid_height = _costmap_client->costmap_.getSizeInCellsY();
+
+        geometry_msgs::msg::Point current_pose = _costmap_client->getRobotPose().pose.position;
+
         
         std::vector<std::vector<unsigned char>> temp_grid_data(temp_grid_width,std::vector<unsigned char>(temp_grid_height));
         for(unsigned int i=0;i<temp_grid_width*temp_grid_height;++i)
@@ -411,7 +415,7 @@ namespace robot_topological_explore
         planner->setup();
 
         // planner->constructRoadmap(PlannerTerminationClass(NULL));
-        planner->constructRoadmap(ompl::base::IterationTerminationCondition(1000));
+        planner->constructRoadmap(ompl::base::IterationTerminationCondition(3500));
         auto graph = planner->getRoadmap();
         std::cout << "No of vertices before  = " << graph.m_vertices.size()<<std::endl;
         // planner->constructRoadmap(ompl::base::CostConvergenceTerminationCondition(pdef));
@@ -421,7 +425,7 @@ namespace robot_topological_explore
 
         if(solved)
         {
-            std::cout<<"Solved the problem"<<std::endl;
+            std::cout<<"Solved the problem of path connectedness between source and destination"<<std::endl;
             ompl::geometric::PathGeometric path( dynamic_cast< const ompl::geometric::PathGeometric& >( *pdef->getSolutionPath()));
             for(unsigned int i=0;i<path.getStateCount();++i)
             {
@@ -430,43 +434,54 @@ namespace robot_topological_explore
                 auto coord2 = state->as<ompl::base::CompoundState>()->as<ompl::base::DiscreteStateSpace::StateType>(1)->value;
                 std::cout<<"( " <<coord1 << "," << coord2 <<" )"<<std::endl; 
             }
-            std::cout<<"Done printing path"<<std::endl;
+            std::cout<<"Completed printing the path found by PRM"<<std::endl;
         }
         else
         {
-            std::cout<<"Couldnt find the path";
+            std::cout<<"Couldnt get a path between the source and the destination vertices"<<std::endl;
+            return;
         }
         
         graph = planner->getRoadmap();
         std::cout << "No of vertices  after = " << graph.m_vertices.size()<<std::endl;
-       
+        
+        bool start_node_index_found = false;
+        unsigned int start_node_idx;
+
+        for(unsigned int i=0;i<graph.m_vertices.size();++i)
+        {
+            unsigned int current_x = graph.m_vertices[i].m_property.m_value->as<ompl::base::CompoundState>()->as<ompl::base::DiscreteStateSpace::StateType>(0)->value;
+            unsigned int current_y = graph.m_vertices[i].m_property.m_value->as<ompl::base::CompoundState>()->as<ompl::base::DiscreteStateSpace::StateType>(1)->value;
+            if(current_x == mx && current_y == my)
+            {
+                start_node_index_found = true;
+                start_node_idx = i;
+            }
+        }
+        if(!start_node_index_found)
+        {
+            RCLCPP_INFO(node_.get_logger(),"Couldnt find indices for start node and end node in graph");
+            return;
+        }
+
 
         //PRM code ends here
 
         std::complex<double> s_point(mx,my);
-        std::complex<double> g_point(gx,gy);
-        
-        std::vector<std::complex<double>> directions = {
-            std::complex<double>(1.0,0.0),
-            std::complex<double>(0.0,1.0),
-            std::complex<double>(-1.0,0.0),
-            std::complex<double>(0.0,-1.0),
-            std::complex<double>(1.0,1.0),
-            std::complex<double>(-1.0,1.0),
-            std::complex<double>(1.0,-1.0),
-            std::complex<double>(-1.0,-1.0),
-        };
-
+        std::complex<double> g_point(gx,gy);   
         std::priority_queue<AstarNode*, std::vector<AstarNode*>, std::function<bool(AstarNode*, AstarNode*)>> pq([](AstarNode* a, AstarNode* b) { return (a->f + a->g) > (b->f + b->g); });
         std::unordered_map<std::string,double> distance_count;
+        
         // std::set<std::string> visited;
         std::stringstream ss;
         ss << s_point << "-\n"<< partial_h_signature;
         distance_count[ss.str()] = std::abs(g_point-s_point);
         // RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : distance value = %lf",distance_count[ss.str()]);
-        AstarNode* start_node = new AstarNode(s_point,partial_h_signature,0,std::abs(g_point-s_point),NULL,{});
+        AstarNode* start_node = new AstarNode(start_node_idx,s_point,partial_h_signature,0,std::abs(g_point-s_point),NULL,{});
         pq.push(start_node);
-        // RCLCPP_INFO(node_.get_logger()," get_non_homologous_path : start_node pushed");
+
+        auto state_map = boost::get(ompl::geometric::PRM::vertex_state_t(),graph);
+
         while(!pq.empty())
         {
             AstarNode* node = pq.top();
@@ -546,12 +561,20 @@ namespace robot_topological_explore
             }
             else
             {
-                for(unsigned int i=0;i<directions.size();++i)
+
+                auto neighbours = boost::out_edges(node->vertex_id,graph);
+                for(auto neighbour =  neighbours.first;  neighbour != neighbours.second;++neighbour)
                 {
-                    std::complex<double> new_point = node->point + directions[i];
-                    unsigned int new_point_index = _costmap_client->costmap_.getIndex((unsigned int)new_point.real(),(unsigned int)new_point.imag());
-                    if( ((long)real(new_point))<0 || ((long)real(new_point))>= map_size_x || ((long)imag(new_point))<0 || ((long)imag(new_point))>=map_size_y || (costmap_data[new_point_index] == nav2_costmap_2d::LETHAL_OBSTACLE || costmap_data[new_point_index] == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE))
+                    unsigned int new_point_idx;
+                    new_point_idx = neighbour->m_target;
+                    unsigned int new_point_x = state_map[new_point_idx]->as<ompl::base::CompoundState>()->as<ompl::base::DiscreteStateSpace::StateType>(0)->value;
+                    unsigned int new_point_y = state_map[new_point_idx]->as<ompl::base::CompoundState>()->as<ompl::base::DiscreteStateSpace::StateType>(1)->value;
+
+                    std::complex<double> new_point(new_point_x,new_point_y);
+                    unsigned int costmap_new_point_index = _costmap_client->costmap_.getIndex((unsigned int)new_point.real(),(unsigned int)new_point.imag());
+                    if( ((long)real(new_point))<0 || ((long)real(new_point))>= map_size_x || ((long)imag(new_point))<0 || ((long)imag(new_point))>=map_size_y || (costmap_data[costmap_new_point_index] == nav2_costmap_2d::LETHAL_OBSTACLE || costmap_data[costmap_new_point_index] == nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE))
                         continue;
+
                     Eigen::VectorXcd s_vec = Eigen::VectorXcd::Constant(obstacle_points.size(),node->point) - obstacle_points;
                     Eigen::VectorXcd e_vec = Eigen::VectorXcd::Constant(obstacle_points.size(),new_point) - obstacle_points;
                     Eigen::VectorXd t =   s_vec.array().binaryExpr(e_vec.array(),customOp);
@@ -559,14 +582,13 @@ namespace robot_topological_explore
                     Eigen::VectorXd filtered = (1.0/(2*M_PIf64))*temp;
                     if((filtered.array()> 1.0).any() || (filtered.array() < -1.0).any())
                         continue;
-                    double cell_cost = costmap_data[new_point_index];
+                    
+                    double cell_cost = std::abs(new_point - node->point) + costmap_data[costmap_new_point_index];
                     if(cell_cost == nav2_costmap_2d::NO_INFORMATION)
-                        cell_cost = 1.0;
+                        cell_cost = 1.0 + std::abs(new_point - node->point);
                     double f = node->f + cell_cost;
                     double g = std::abs(new_point-g_point);
 
-                    // double c = node->cost + cell_cost + std::abs(new_point-goal_point);
-                    
                     std::stringstream ss;
                     ss << new_point << "-\n"<< temp;
                     std::string key = ss.str();
@@ -574,7 +596,7 @@ namespace robot_topological_explore
                     {
                         distance_count[key] = f + g ;
                         std::vector<std::complex<double>> edge = { node->point,new_point}; 
-                        AstarNode* new_node = new AstarNode(new_point,temp,f,g,node,edge);
+                        AstarNode* new_node = new AstarNode(new_point_idx,new_point,temp,f,g,node,edge);
                         pq.push(new_node);
                     }
                 }

@@ -76,7 +76,8 @@ public:
         // current_goal_point.x = current_goal.x;
         // current_goal_point.y = current_goal.y;
         // node_->visualize_positions({current_goal_point, node_->robot.global_start_point});
-        node_->robot.get_exploration_path();
+        // node_->robot.get_exploration_path();
+        node_->robot.get_non_homologous_PRM();
         node_->visualize_path(node_->robot.current_path);
         return BT::NodeStatus::SUCCESS;
       }
