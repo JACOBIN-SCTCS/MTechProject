@@ -534,15 +534,7 @@ namespace robot_topological_explore
                     geometry_msgs::msg::Point current_point;
                     current_point.x = current_point_x;
                     current_point.y = current_point_y;
-                    if(path.size() > 0)
-                    {
-                        if( (get_absolute_distance(current_point,path[path.size()-1]) >= 0.5) || (current_point.x==current_pose.x && current_point.y == current_pose.y))
-                            path.push_back(current_point);
-                    }
-                    else
-                    {
-                        path.push_back(current_point);
-                    }
+                    path.push_back(current_point);
                     temp = temp->parent;
                 }
             
@@ -556,8 +548,8 @@ namespace robot_topological_explore
                     new_path.push_back(path[j]);
 
                 current_path = new_path;
-             
-                 break; 
+                return;
+                // break; 
             }
             else
             {

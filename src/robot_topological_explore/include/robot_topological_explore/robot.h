@@ -64,6 +64,17 @@ namespace robot_topological_explore
         struct AstarNode* parent; 
         std::vector<std::complex<double>> edge;
 
+        bool operator==(const AstarNode &p) const 
+        {
+            auto difference_h_signature = p.h_signature - h_signature;
+            bool difference_result = false;
+            if(difference_h_signature.isZero(0.001))
+                difference_result = true;
+
+            return (p.point.real()==point.real()) 
+            && (p.point.imag()==point.imag()) && difference_result ;
+        }
+
         AstarNode(std::complex<double> p,
         Eigen::VectorXd h,
         double f,
@@ -86,6 +97,34 @@ namespace robot_topological_explore
         struct AstarNode* pa,
         std::vector<std::complex<double>> e) : vertex_id(v) , point(p) , h_signature(h),f(f),g(g),parent(pa) , edge(e) {}
   
+    };
+
+    struct AstarKeyHash 
+    {
+        std::size_t operator()(const AstarNode& node) const
+        {
+            std::size_t h_hash = 0;
+            for(unsigned int i=0;i<node.h_signature.size();++i)
+            {
+                h_hash = h_hash ^ std::hash<double>()(node.h_signature(i));
+            }
+
+            return std::hash<double>()(node.point.real()) ^ std::hash<double>()(node.point.imag()) ^ h_hash;
+        }
+    };
+    
+    struct AstarKeyEqual
+    {
+        bool operator()(const AstarNode& first ,  const AstarNode& second)
+        {
+            auto difference_h_signature = first.h_signature - second.h_signature;
+            bool difference_result = false;
+            if(difference_h_signature.isZero(0.001))
+                difference_result = true;
+
+            return (first.point.real()==second.point.real()) 
+            && (first.point.imag()==second.point.imag()) && difference_result ;
+        }
     };
 
     class Robot
